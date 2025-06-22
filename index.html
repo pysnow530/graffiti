@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas 涂鸦板</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Canvas 涂鸦板</h1>
+    </header>
+    
+    <main>
+        <div class="toolbar">
+            <div class="tool-group">
+                <label for="colorPicker">颜色:</label>
+                <input type="color" id="colorPicker" value="#000000">
+            </div>
+            
+            <div class="tool-group">
+                <label for="brushSize">画笔大小:</label>
+                <input type="range" id="brushSize" min="1" max="50" value="5">
+                <span id="sizeDisplay">5</span>px
+            </div>
+            
+            <div class="tool-group">
+                <button id="clearCanvas">清空画布</button>
+                <button id="saveCanvas">保存图片</button>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="drawingCanvas"></canvas>
+        </div>
+    </main>
+    
+    <script src="script.js"></script>
+</body>
+</html> 
