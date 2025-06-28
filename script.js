@@ -234,64 +234,12 @@ class GraffitiCanvas {
                 return a > 0 && !(r > 250 && g > 250 && b > 250);
             };
             
-            // X轴方向扫描（逐行扫描）- 只记录每行的左右两端
-            for (let y = 0; y < height; y += this.gridSize) {
-                let leftEdge = -1;
-                let rightEdge = -1;
-                
-                // 从左到右找第一个非空像素（左边缘）
-                for (let x = 0; x < width; x += this.gridSize) {
-                    if (isPixelNotEmpty(x, y)) {
-                        leftEdge = x;
-                        break;
-                    }
-                }
-                
-                // 从右到左找第一个非空像素（右边缘）
-                for (let x = width - 1; x >= 0; x -= this.gridSize) {
-                    if (isPixelNotEmpty(x, y)) {
-                        rightEdge = x;
-                        break;
-                    }
-                }
-                
-                // 添加边缘点
-                if (leftEdge !== -1) {
-                    edgePoints.add(`${leftEdge},${y}`);
-                }
-                if (rightEdge !== -1 && rightEdge !== leftEdge) {
-                    edgePoints.add(`${rightEdge},${y}`);
-                }
-            }
+            // 多角度全覆盖扫描
+            const angleStep = this.gridSize; // 角度步长，gridSize作为度数间隔
             
-            // Y轴方向扫描（逐列扫描）- 只记录每列的上下两端
-            for (let x = 0; x < width; x += this.gridSize) {
-                let topEdge = -1;
-                let bottomEdge = -1;
-                
-                // 从上到下找第一个非空像素（上边缘）
-                for (let y = 0; y < height; y += this.gridSize) {
-                    if (isPixelNotEmpty(x, y)) {
-                        topEdge = y;
-                        break;
-                    }
-                }
-                
-                // 从下到上找第一个非空像素（下边缘）
-                for (let y = height - 1; y >= 0; y -= this.gridSize) {
-                    if (isPixelNotEmpty(x, y)) {
-                        bottomEdge = y;
-                        break;
-                    }
-                }
-                
-                // 添加边缘点
-                if (topEdge !== -1) {
-                    edgePoints.add(`${x},${topEdge}`);
-                }
-                if (bottomEdge !== -1 && bottomEdge !== topEdge) {
-                    edgePoints.add(`${x},${bottomEdge}`);
-                }
+            // 按角度扫描（每gridSize度扫描一次，0-180度即可覆盖所有方向）
+            for (let angle = 0; angle < 180; angle += angleStep) {
+                this.scanInDirection(angle, edgePoints, width, height, isPixelNotEmpty);
             }
             
             // 绘制边缘点
@@ -303,6 +251,80 @@ class GraffitiCanvas {
         } catch (error) {
             this.showNotification('边缘检测失败，请重试', 'error');
             console.error('边缘检测错误:', error);
+        }
+    }
+    
+    // 在指定角度方向进行全覆盖扫描
+    scanInDirection(angleDegrees, edgePoints, width, height, isPixelNotEmpty) {
+        const radians = (angleDegrees * Math.PI) / 180;
+        const cosAngle = Math.cos(radians);
+        const sinAngle = Math.sin(radians);
+        
+        // 扫描线方向向量
+        const dirX = cosAngle;
+        const dirY = sinAngle;
+        
+        // 垂直于扫描线的方向向量
+        const perpX = -sinAngle;
+        const perpY = cosAngle;
+        
+        // 计算画布的四个角点
+        const corners = [
+            {x: 0, y: 0},
+            {x: width, y: 0},
+            {x: width, y: height},
+            {x: 0, y: height}
+        ];
+        
+        // 计算所有角点在垂直方向上的投影，确定扫描范围
+        let minProj = Infinity;
+        let maxProj = -Infinity;
+        
+        corners.forEach(corner => {
+            const proj = corner.x * perpX + corner.y * perpY;
+            minProj = Math.min(minProj, proj);
+            maxProj = Math.max(maxProj, proj);
+        });
+        
+        // 扩展扫描范围，确保完全覆盖
+        const margin = this.gridSize * 2;
+        minProj -= margin;
+        maxProj += margin;
+        
+        // 在垂直方向上每隔gridSize距离放置一条扫描线
+        for (let perpDist = minProj; perpDist <= maxProj; perpDist += this.gridSize) {
+            // 计算当前扫描线的基准点
+            const baseX = perpDist * perpX;
+            const baseY = perpDist * perpY;
+            
+            // 沿扫描方向寻找边缘点
+            const scanRange = Math.sqrt(width * width + height * height);
+            let firstEdge = null;
+            let lastEdge = null;
+            
+            // 正向扫描
+            for (let dist = -scanRange; dist <= scanRange; dist += this.gridSize) {
+                const x = Math.round(baseX + dist * dirX);
+                const y = Math.round(baseY + dist * dirY);
+                
+                // 检查坐标是否在画布范围内
+                if (x >= 0 && x < width && y >= 0 && y < height) {
+                    if (isPixelNotEmpty(x, y)) {
+                        if (!firstEdge) {
+                            firstEdge = `${x},${y}`;
+                        }
+                        lastEdge = `${x},${y}`;
+                    }
+                }
+            }
+            
+            // 添加找到的边缘点
+            if (firstEdge) {
+                edgePoints.add(firstEdge);
+            }
+            if (lastEdge && lastEdge !== firstEdge) {
+                edgePoints.add(lastEdge);
+            }
         }
     }
     
