@@ -98,6 +98,16 @@ button {
     transform: translateY(-2px);
 }
 
+#edgeDetection {
+    background: #007bff;
+    color: white;
+}
+
+#edgeDetection:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+}
+
 #saveCanvas {
     background: #28a745;
     color: white;
