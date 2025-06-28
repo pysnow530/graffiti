@@ -6,7 +6,7 @@ class GraffitiCanvas {
         this.isDrawing = false;
         this.currentColor = '#000000';
         this.currentSize = 5;
-        this.gridSize = 5;
+        this.gridSize = parseInt(document.getElementById('gridSize').value);
         
         this.initCanvas();
         this.bindEvents();
