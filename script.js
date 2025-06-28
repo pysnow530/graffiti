@@ -378,6 +378,24 @@ class GraffitiCanvas {
             console.error('边缘检测错误:', error);
         }
     }
+
+    // 检查圆形区域内是否有像素点
+    hasPixelInCircle(centerX, centerY, radius, isPixelNotEmpty, width, height)  {
+        for (let dx = -radius; dx <= radius; dx++) {
+            for (let dy = -radius; dy <= radius; dy++) {
+                if (Math.abs(dx) + Math.abs(dy) <= radius) { // 使用曼哈顿距离近似欧几里得距离
+                    const x = centerX + dx;
+                    const y = centerY + dy;
+                    if (x >= 0 && x < width && y >= 0 && y < height) {
+                        if (isPixelNotEmpty(x, y)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    };
     
     // 在指定角度方向进行全覆盖扫描
     scanInDirection(angleDegrees, edgePoints, width, height, isPixelNotEmpty) {
@@ -437,32 +455,17 @@ class GraffitiCanvas {
                 const centerX = Math.round(perpDist * perpX + dist * dirX);
                 const centerY = Math.round(perpDist * perpY + dist * dirY);
                 
-                // 圆形区域检测
-                let foundEdge = false;
+                // 使用函数检测圆形区域
                 const detectionRadius = 2;
-                for (let dx = -detectionRadius; dx <= detectionRadius; dx++) {
-                    if (foundEdge) break;
-                    for (let dy = -detectionRadius; dy <= detectionRadius; dy++) {
-                        if (foundEdge) break;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        if (distance <= detectionRadius) {
-                            const x = centerX + dx;
-                            const y = centerY + dy;
-                            // 检测圆形区域内的每个点
-                            if (x >= 0 && x < width && y >= 0 && y < height) {
-                                linePixelsChecked++;
-                                if (isPixelNotEmpty(x, y)) {
-                                    // 记录边缘点
-                                    const edgePoint = `${x},${y}`;
-                                    if (!firstEdge) {
-                                        firstEdge = edgePoint;
-                                    }
-                                    lastEdge = edgePoint;
-                                    foundEdge = true;
-                                }
-                            }
-                        }
+                if (this.hasPixelInCircle(centerX, centerY, detectionRadius, isPixelNotEmpty, width, height)) {
+                    linePixelsChecked++;
+
+                    // 记录边缘点
+                    const edgePoint = `${centerX},${centerY}`;
+                    if (!firstEdge) {
+                        firstEdge = edgePoint;
                     }
+                    lastEdge = edgePoint;
                 }
             }
             
