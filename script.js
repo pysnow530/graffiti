@@ -289,11 +289,18 @@ class GraffitiCanvas {
     // 图像描边功能
     detectEdges() {
         try {
+            // === 性能计时开始 ===
+            const totalStartTime = performance.now();
+            console.log('🔍 开始边缘检测算法...');
+            
             // 获取画布像素数据
+            const imageDataStartTime = performance.now();
             const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
             const data = imageData.data;
             const width = this.canvas.width;
             const height = this.canvas.height;
+            const imageDataTime = performance.now() - imageDataStartTime;
+            console.log(`📊 获取图像数据耗时: ${imageDataTime.toFixed(2)}ms`);
             
             // 存储边缘点
             const edgePoints = new Set();
@@ -313,17 +320,58 @@ class GraffitiCanvas {
             
             // 多角度全覆盖扫描
             const angleStep = this.gridSize; // 角度步长，gridSize作为度数间隔
+            const totalAngles = Math.ceil(180 / angleStep);
+            console.log(`🎯 开始多角度扫描，角度步长: ${angleStep}°, 总角度数: ${totalAngles}`);
+            
+            const scanStartTime = performance.now();
+            let angleCount = 0;
+            const angleTimings = [];
             
             // 按角度扫描（每gridSize度扫描一次，0-180度即可覆盖所有方向）
             for (let angle = 0; angle < 180; angle += angleStep) {
+                const angleStartTime = performance.now();
+                const initialEdgeCount = edgePoints.size;
+                
                 this.scanInDirection(angle, edgePoints, width, height, isPixelNotEmpty);
+                
+                const angleTime = performance.now() - angleStartTime;
+                const newEdgeCount = edgePoints.size - initialEdgeCount;
+                angleTimings.push({angle, time: angleTime, newEdges: newEdgeCount});
+                angleCount++;
+                
+                // 每10个角度打印一次进度
+                if (angleCount % 10 === 0 || angle === 0) {
+                    console.log(`  📐 角度 ${angle}° 完成，耗时: ${angleTime.toFixed(2)}ms，新增边缘点: ${newEdgeCount}`);
+                }
             }
             
+            const totalScanTime = performance.now() - scanStartTime;
+            console.log(`⚡ 扫描阶段总耗时: ${totalScanTime.toFixed(2)}ms`);
+            console.log(`📈 平均每角度耗时: ${(totalScanTime / angleCount).toFixed(2)}ms`);
+            
+            // 找出耗时最长和最短的角度
+            const sortedTimings = [...angleTimings].sort((a, b) => b.time - a.time);
+            console.log(`🐌 最慢角度: ${sortedTimings[0].angle}° (${sortedTimings[0].time.toFixed(2)}ms)`);
+            console.log(`🚀 最快角度: ${sortedTimings[sortedTimings.length-1].angle}° (${sortedTimings[sortedTimings.length-1].time.toFixed(2)}ms)`);
+            
             // 绘制边缘点
+            const drawStartTime = performance.now();
             this.drawEdgePoints(edgePoints);
+            const drawTime = performance.now() - drawStartTime;
+            console.log(`🎨 绘制边缘点耗时: ${drawTime.toFixed(2)}ms`);
+            
+            // === 性能计时结束 ===
+            const totalTime = performance.now() - totalStartTime;
+            console.log('='.repeat(50));
+            console.log(`✅ 边缘检测算法完成！`);
+            console.log(`📊 总耗时: ${totalTime.toFixed(2)}ms`);
+            console.log(`📊 检测到边缘点: ${edgePoints.size} 个`);
+            console.log(`📊 处理效率: ${(edgePoints.size / totalTime * 1000).toFixed(0)} 点/秒`);
+            console.log(`📊 像素处理速度: ${((width * height) / totalTime * 1000).toFixed(0)} 像素/秒`);
+            console.log('='.repeat(50));
             
             // 显示成功通知
-            this.showNotification(`边缘检测完成！检测到 ${edgePoints.size} 个边缘点`, 'success');
+            this.showNotification(`边缘检测完成！检测到 ${edgePoints.size} 个边缘点，耗时 ${totalTime.toFixed(0)}ms`, 'success');
             
         } catch (error) {
             this.showNotification('边缘检测失败，请重试', 'error');
@@ -368,12 +416,20 @@ class GraffitiCanvas {
         minProj -= margin;
         maxProj += margin;
         
+        // 性能统计变量
+        let totalScanLines = 0;
+        let totalPixelsChecked = 0;
+        let totalEdgePointsFound = 0;
+        
         // 在垂直方向上每隔gridSize距离放置一条扫描带（5个点宽度）
         for (let perpDist = minProj; perpDist <= maxProj; perpDist += this.gridSize) {
+            totalScanLines++;
+            
             // 沿扫描方向寻找边缘点
             const scanRange = Math.sqrt(width * width + height * height);
             let firstEdge = null;
             let lastEdge = null;
+            let linePixelsChecked = 0;
             
             // 正向扫描
             for (let dist = -scanRange; dist <= scanRange; dist += 1) {
@@ -394,6 +450,7 @@ class GraffitiCanvas {
                             const y = centerY + dy;
                             // 检测圆形区域内的每个点
                             if (x >= 0 && x < width && y >= 0 && y < height) {
+                                linePixelsChecked++;
                                 if (isPixelNotEmpty(x, y)) {
                                     // 记录边缘点
                                     const edgePoint = `${x},${y}`;
@@ -401,6 +458,7 @@ class GraffitiCanvas {
                                         firstEdge = edgePoint;
                                     }
                                     lastEdge = edgePoint;
+                                    foundEdge = true;
                                 }
                             }
                         }
@@ -408,13 +466,22 @@ class GraffitiCanvas {
                 }
             }
             
+            totalPixelsChecked += linePixelsChecked;
+            
             // 添加找到的边缘点
             if (firstEdge) {
                 edgePoints.add(firstEdge);
+                totalEdgePointsFound++;
             }
             if (lastEdge && lastEdge !== firstEdge) {
                 edgePoints.add(lastEdge);
+                totalEdgePointsFound++;
             }
+        }
+        
+        // 输出详细的角度统计（仅对关键角度）
+        if (angleDegrees % 30 === 0 || angleDegrees < 10) {
+            console.log(`    🔎 角度 ${angleDegrees}°: 扫描线 ${totalScanLines} 条, 检测像素 ${totalPixelsChecked} 个, 发现边缘点 ${totalEdgePointsFound} 个`);
         }
     }
     
