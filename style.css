@@ -98,6 +98,25 @@ button {
     transform: translateY(-2px);
 }
 
+.upload-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    background: #6f42c1;
+    color: white;
+    display: inline-block;
+    text-align: center;
+}
+
+.upload-btn:hover {
+    background: #5a2d91;
+    transform: translateY(-2px);
+}
+
 #edgeDetection {
     background: #007bff;
     color: white;

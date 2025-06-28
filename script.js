@@ -35,6 +35,7 @@ class GraffitiCanvas {
         const sizeDisplay = document.getElementById('sizeDisplay');
         const gridSize = document.getElementById('gridSize');
         const gridSizeDisplay = document.getElementById('gridSizeDisplay');
+        const imageUpload = document.getElementById('imageUpload');
         const edgeButton = document.getElementById('edgeDetection');
         const clearButton = document.getElementById('clearCanvas');
         const saveButton = document.getElementById('saveCanvas');
@@ -56,6 +57,11 @@ class GraffitiCanvas {
         gridSize.addEventListener('input', (e) => {
             this.gridSize = parseInt(e.target.value);
             gridSizeDisplay.textContent = this.gridSize;
+        });
+        
+        // 图片导入事件
+        imageUpload.addEventListener('change', (e) => {
+            this.handleImageUpload(e);
         });
         
         // 图像描边事件
@@ -142,6 +148,77 @@ class GraffitiCanvas {
             this.isDrawing = false;
             this.ctx.beginPath();
         }
+    }
+    
+    // 处理图片上传
+    handleImageUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // 检查文件类型
+        if (!file.type.startsWith('image/')) {
+            this.showNotification('请选择有效的图片文件！', 'error');
+            return;
+        }
+        
+        // 检查文件大小（限制为10MB）
+        if (file.size > 10 * 1024 * 1024) {
+            this.showNotification('图片文件过大，请选择小于10MB的图片！', 'error');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                this.drawImageToCanvas(img);
+                this.showNotification('图片导入成功！', 'success');
+            };
+            img.onerror = () => {
+                this.showNotification('图片加载失败，请重试！', 'error');
+            };
+            img.src = event.target.result;
+        };
+        
+        reader.onerror = () => {
+            this.showNotification('文件读取失败，请重试！', 'error');
+        };
+        
+        reader.readAsDataURL(file);
+        
+        // 清空input的值，允许重复选择同一文件
+        e.target.value = '';
+    }
+    
+    // 将图片绘制到画布上
+    drawImageToCanvas(img) {
+        // 清空画布并填充白色背景
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // 计算缩放比例，保持图片比例并适应画布
+        const canvasRatio = this.canvas.width / this.canvas.height;
+        const imageRatio = img.width / img.height;
+        
+        let drawWidth, drawHeight, offsetX, offsetY;
+        
+        if (imageRatio > canvasRatio) {
+            // 图片更宽，以宽度为准
+            drawWidth = this.canvas.width;
+            drawHeight = this.canvas.width / imageRatio;
+            offsetX = 0;
+            offsetY = (this.canvas.height - drawHeight) / 2;
+        } else {
+            // 图片更高，以高度为准
+            drawHeight = this.canvas.height;
+            drawWidth = this.canvas.height * imageRatio;
+            offsetX = (this.canvas.width - drawWidth) / 2;
+            offsetY = 0;
+        }
+        
+        // 绘制图片
+        this.ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
     }
     
     // 清空画布
