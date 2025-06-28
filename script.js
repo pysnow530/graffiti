@@ -368,29 +368,42 @@ class GraffitiCanvas {
         minProj -= margin;
         maxProj += margin;
         
-        // 在垂直方向上每隔gridSize距离放置一条扫描线
+        // 在垂直方向上每隔gridSize距离放置一条扫描带（5个点宽度）
         for (let perpDist = minProj; perpDist <= maxProj; perpDist += this.gridSize) {
-            // 计算当前扫描线的基准点
-            const baseX = perpDist * perpX;
-            const baseY = perpDist * perpY;
-            
             // 沿扫描方向寻找边缘点
             const scanRange = Math.sqrt(width * width + height * height);
             let firstEdge = null;
             let lastEdge = null;
             
             // 正向扫描
-            for (let dist = -scanRange; dist <= scanRange; dist += this.gridSize) {
-                const x = Math.round(baseX + dist * dirX);
-                const y = Math.round(baseY + dist * dirY);
+            for (let dist = -scanRange; dist <= scanRange; dist += 1) {
+                // 计算中心点
+                const centerX = Math.round(perpDist * perpX + dist * dirX);
+                const centerY = Math.round(perpDist * perpY + dist * dirY);
                 
-                // 检查坐标是否在画布范围内
-                if (x >= 0 && x < width && y >= 0 && y < height) {
-                    if (isPixelNotEmpty(x, y)) {
-                        if (!firstEdge) {
-                            firstEdge = `${x},${y}`;
+                // 圆形区域检测
+                let foundEdge = false;
+                const detectionRadius = 2;
+                for (let dx = -detectionRadius; dx <= detectionRadius; dx++) {
+                    if (foundEdge) break;
+                    for (let dy = -detectionRadius; dy <= detectionRadius; dy++) {
+                        if (foundEdge) break;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance <= detectionRadius) {
+                            const x = centerX + dx;
+                            const y = centerY + dy;
+                            // 检测圆形区域内的每个点
+                            if (x >= 0 && x < width && y >= 0 && y < height) {
+                                if (isPixelNotEmpty(x, y)) {
+                                    // 记录边缘点
+                                    const edgePoint = `${x},${y}`;
+                                    if (!firstEdge) {
+                                        firstEdge = edgePoint;
+                                    }
+                                    lastEdge = edgePoint;
+                                }
+                            }
                         }
-                        lastEdge = `${x},${y}`;
                     }
                 }
             }
