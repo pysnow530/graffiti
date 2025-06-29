@@ -91,6 +91,7 @@ graffiti/
   - UI事件绑定和处理
   - 通知系统管理
   - 应用生命周期管理
+  - **边缘检测结果绘制协调**
 
 ### 🛠️ Utils (工具函数)
 - **职责**: 通用辅助功能
@@ -135,6 +136,23 @@ graffiti/
 
 项目采用模块化架构，代码结构清晰，职责分离，易于维护和扩展。每个模块都有明确的职责和接口，可以独立开发和测试。
 
+### 🏗️ 架构设计原则
+
+**职责分离 (Separation of Concerns)**：
+- ✅ **算法模块**：只负责计算，不操作UI
+- ✅ **绘制模块**：专注于图形渲染，不包含业务逻辑
+- ✅ **控制模块**：协调各模块交互，管理应用状态
+- ✅ **数据格式**：统一的结构化数据传递
+
+**例子：边缘检测流程**
+```
+EdgeDetectionAlgorithm (计算) 
+    ↓ 返回边缘点数组
+GraffitiApp (协调)
+    ↓ 调用绘制方法
+ImageProcessor (渲染)
+```
+
 ### 🔧 模块扩展指南
 
 - **DrawingEngine**: 添加新的画笔样式、几何图形绘制工具
@@ -173,11 +191,32 @@ const arrayFormat = edgeDetector.convertEdgePointsFormat(edgePoints, 'array');
 // 结果: [[100,50], [105,52], [110,48]]
 ```
 
+**绘制控制API**：
+```javascript
+// 配置边缘绘制参数
+app.setEdgeDrawConfig({
+    color: '#ff0000',    // 红色边缘点
+    radius: 2,           // 点半径
+    enabled: true        // 自动绘制
+});
+
+// 手动绘制边缘点（使用自定义配置）
+app.drawEdgePoints(edgePoints, {
+    color: '#00ff00',
+    radius: 3
+});
+
+// 只执行算法，不自动绘制
+app.setEdgeDrawConfig({ enabled: false });
+app.handleEdgeDetection(); // 只计算，返回数据
+```
+
 **优势**：
 - ✅ 类型安全，便于IDE提示和错误检查
 - ✅ 更直观的数据结构，易于理解和使用
 - ✅ 支持扩展（可添加更多属性如颜色、权重等）
 - ✅ 向后兼容，`drawPoints`方法仍支持字符串格式
+- ✅ **职责分离，算法与绘制解耦**
 
 ## 边缘检测算法优势
 

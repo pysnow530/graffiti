@@ -12,6 +12,13 @@ class GraffitiApp {
         this.imageProcessor = new ImageProcessor(this.drawingEngine);
         this.edgeDetection = new EdgeDetectionAlgorithm(this.imageProcessor);
         
+        // 边缘绘制配置
+        this.edgeDrawConfig = {
+            color: '#007bff',  // 蓝色
+            radius: 1,         // 点半径
+            enabled: true      // 是否自动绘制
+        };
+        
         // 初始化应用
         this.initializeApp();
     }
@@ -99,6 +106,7 @@ class GraffitiApp {
     
     /**
      * 处理边缘检测
+     * 负责协调边缘检测算法执行和结果绘制
      */
     handleEdgeDetection() {
         // 显示开始通知
@@ -114,7 +122,31 @@ class GraffitiApp {
         
         // 完成回调
         const onComplete = (edgePoints, stats) => {
-            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点，耗时 ${stats.totalTime.toFixed(0)}ms`;
+            let drawTime = 0;
+            
+            // 根据配置决定是否绘制边缘点
+            if (this.edgeDrawConfig.enabled) {
+                const drawStartTime = performance.now();
+                this.imageProcessor.drawPoints(
+                    edgePoints, 
+                    this.edgeDrawConfig.color, 
+                    this.edgeDrawConfig.radius
+                );
+                drawTime = performance.now() - drawStartTime;
+                
+                console.log(`🎨 绘制边缘点耗时: ${drawTime.toFixed(2)}ms`);
+            }
+            
+            // 更新统计信息
+            stats.drawTime = drawTime;
+            stats.totalTimeWithDraw = stats.totalTime + drawTime;
+            
+            console.log(`📊 包含绘制的总耗时: ${stats.totalTimeWithDraw.toFixed(2)}ms`);
+            
+            const drawInfo = this.edgeDrawConfig.enabled ? 
+                `，绘制耗时 ${drawTime.toFixed(0)}ms` : 
+                '（未绘制）';
+            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点，算法耗时 ${stats.totalTime.toFixed(0)}ms${drawInfo}`;
             this.showNotification(message, 'success');
         };
         
@@ -125,6 +157,31 @@ class GraffitiApp {
         
         // 执行边缘检测
         this.edgeDetection.detectEdges(onProgress, onComplete, onError);
+    }
+    
+    /**
+     * 设置边缘绘制配置
+     * @param {Object} config - 绘制配置
+     * @param {string} config.color - 边缘点颜色
+     * @param {number} config.radius - 边缘点半径
+     * @param {boolean} config.enabled - 是否启用自动绘制
+     */
+    setEdgeDrawConfig(config) {
+        this.edgeDrawConfig = { ...this.edgeDrawConfig, ...config };
+    }
+    
+    /**
+     * 手动绘制边缘点
+     * @param {Array<{x: number, y: number}>} edgePoints - 边缘点数组
+     * @param {Object} config - 可选的绘制配置
+     */
+    drawEdgePoints(edgePoints, config = null) {
+        const drawConfig = config || this.edgeDrawConfig;
+        this.imageProcessor.drawPoints(
+            edgePoints,
+            drawConfig.color,
+            drawConfig.radius
+        );
     }
     
     /**

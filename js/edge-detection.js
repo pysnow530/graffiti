@@ -1,6 +1,11 @@
 /**
  * 边缘检测算法
  * 负责图像边缘检测和相关算法实现
+ * 
+ * 设计原则：
+ * - 只负责算法计算，不直接操作画布绘制
+ * - 返回结构化的边缘点数据，由调用方决定如何处理
+ * - 提供详细的性能统计信息
  */
 class EdgeDetectionAlgorithm {
     constructor(imageProcessor) {
@@ -84,11 +89,8 @@ class EdgeDetectionAlgorithm {
             console.log(`🐌 最慢角度: ${sortedTimings[0].angle}° (${sortedTimings[0].time.toFixed(2)}ms)`);
             console.log(`🚀 最快角度: ${sortedTimings[sortedTimings.length-1].angle}° (${sortedTimings[sortedTimings.length-1].time.toFixed(2)}ms)`);
             
-            // 绘制边缘点
-            const drawStartTime = performance.now();
-            this.imageProcessor.drawPoints(edgePoints, '#007bff', 1);
-            const drawTime = performance.now() - drawStartTime;
-            console.log(`🎨 绘制边缘点耗时: ${drawTime.toFixed(2)}ms`);
+            // 边缘检测算法完成，不在此处绘制
+            // 绘制操作将由 GraffitiApp 统一协调处理
             
             // === 性能计时结束 ===
             const totalTime = performance.now() - totalStartTime;
@@ -98,8 +100,7 @@ class EdgeDetectionAlgorithm {
                 processingEfficiency: (edgePoints.length / totalTime * 1000).toFixed(0),
                 pixelProcessingSpeed: ((width * height) / totalTime * 1000).toFixed(0),
                 angleTimings,
-                scanTime: totalScanTime,
-                drawTime
+                scanTime: totalScanTime
             };
             
             this.logPerformanceStats(performanceStats);
