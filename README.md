@@ -82,6 +82,7 @@ graffiti/
   - 圆形区域像素检测
   - 性能统计和监控
   - 边缘点提取和优化
+- **数据格式**: 返回结构化点对象数组 `[{x: number, y: number}, ...]`
 
 ### 🎛️ GraffitiApp (主应用控制器)
 - **职责**: 整体协调、UI交互和通知系统
@@ -109,6 +110,7 @@ graffiti/
 - **Canvas ImageData API** - 像素级图像数据处理
 - **CSS3** - 现代化的界面设计和通知系统
 - **响应式布局** - 适配多种设备
+- **结构化数据** - 边缘检测返回标准化的点对象数组
 
 ## 运行方法
 
@@ -151,6 +153,31 @@ graffiti/
 - 撤销/重做功能
 - 矢量图形支持
 - 实时协作功能
+
+### 📊 API数据格式
+
+**边缘检测结果格式**：
+```javascript
+// 新格式：结构化点对象数组（推荐）
+const edgePoints = [
+    {x: 100, y: 50},
+    {x: 105, y: 52},
+    {x: 110, y: 48}
+];
+
+// 转换为其他格式
+const stringFormat = edgeDetector.convertEdgePointsFormat(edgePoints, 'string');
+// 结果: ["100,50", "105,52", "110,48"]
+
+const arrayFormat = edgeDetector.convertEdgePointsFormat(edgePoints, 'array');
+// 结果: [[100,50], [105,52], [110,48]]
+```
+
+**优势**：
+- ✅ 类型安全，便于IDE提示和错误检查
+- ✅ 更直观的数据结构，易于理解和使用
+- ✅ 支持扩展（可添加更多属性如颜色、权重等）
+- ✅ 向后兼容，`drawPoints`方法仍支持字符串格式
 
 ## 边缘检测算法优势
 

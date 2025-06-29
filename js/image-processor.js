@@ -102,6 +102,11 @@ class ImageProcessor {
     
     /**
      * 在画布上绘制点集
+     * @param {Array} points - 点数组，支持两种格式：
+     *   - 推荐：对象格式 [{x: number, y: number}, ...]
+     *   - 兼容：字符串格式 ["x,y", ...]
+     * @param {string} color - 绘制颜色
+     * @param {number} radius - 点的半径
      */
     drawPoints(points, color = '#007bff', radius = 2) {
         // 保存当前绘图状态
@@ -118,10 +123,15 @@ class ImageProcessor {
         points.forEach(point => {
             let x, y;
             if (typeof point === 'string') {
+                // 向后兼容：支持字符串格式 "x,y"
                 [x, y] = point.split(',').map(Number);
-            } else {
+            } else if (point && typeof point.x === 'number' && typeof point.y === 'number') {
+                // 推荐格式：点对象 {x: number, y: number}
                 x = point.x;
                 y = point.y;
+            } else {
+                console.warn('无效的点格式:', point);
+                return;
             }
             
             // 绘制小圆点

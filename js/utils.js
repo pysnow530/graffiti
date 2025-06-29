@@ -123,4 +123,64 @@ class Utils {
             }
         };
     }
+    
+    /**
+     * 点数据格式转换工具
+     * @param {Array} points - 点数组
+     * @param {string} fromFormat - 源格式 ('object'|'string'|'array')
+     * @param {string} toFormat - 目标格式 ('object'|'string'|'array')
+     * @returns {Array} 转换后的点数组
+     */
+    static convertPointsFormat(points, fromFormat, toFormat) {
+        if (fromFormat === toFormat) return points;
+        
+        // 先转换为标准对象格式
+        let objectPoints = points;
+        if (fromFormat === 'string') {
+            objectPoints = points.map(pointStr => {
+                const [x, y] = pointStr.split(',').map(Number);
+                return {x, y};
+            });
+        } else if (fromFormat === 'array') {
+            objectPoints = points.map(pointArray => ({
+                x: pointArray[0],
+                y: pointArray[1]
+            }));
+        }
+        
+        // 转换为目标格式
+        switch (toFormat) {
+            case 'string':
+                return objectPoints.map(point => `${point.x},${point.y}`);
+            case 'array':
+                return objectPoints.map(point => [point.x, point.y]);
+            case 'object':
+            default:
+                return objectPoints;
+        }
+    }
+    
+    /**
+     * 验证点数据格式
+     * @param {Array} points - 要验证的点数组
+     * @param {string} expectedFormat - 期望的格式
+     * @returns {boolean} 是否符合格式
+     */
+    static validatePointsFormat(points, expectedFormat = 'object') {
+        if (!Array.isArray(points) || points.length === 0) return false;
+        
+        return points.every(point => {
+            switch (expectedFormat) {
+                case 'object':
+                    return point && typeof point.x === 'number' && typeof point.y === 'number';
+                case 'string':
+                    return typeof point === 'string' && /^\d+,\d+$/.test(point);
+                case 'array':
+                    return Array.isArray(point) && point.length === 2 && 
+                           typeof point[0] === 'number' && typeof point[1] === 'number';
+                default:
+                    return false;
+            }
+        });
+    }
 } 

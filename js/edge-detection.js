@@ -17,6 +17,11 @@ class EdgeDetectionAlgorithm {
     
     /**
      * 执行边缘检测算法
+     * @param {Function} onProgress - 进度回调函数 (current, total, angle)
+     * @param {Function} onComplete - 完成回调函数 (edgePoints, stats)
+     *   - edgePoints: Array<{x: number, y: number}> 边缘点对象数组
+     *   - stats: 性能统计对象
+     * @param {Function} onError - 错误回调函数 (error)
      */
     detectEdges(onProgress, onComplete, onError) {
         try {
@@ -33,7 +38,7 @@ class EdgeDetectionAlgorithm {
             console.log(`📊 获取图像数据耗时: ${imageDataTime.toFixed(2)}ms`);
             
             // 存储边缘点
-            const edgePoints = new Set();
+            const edgePoints = [];
             
             // 创建像素检测函数
             const isPixelNotEmpty = (x, y) => this.imageProcessor.isPixelNotEmpty(imageData, x, y);
@@ -50,12 +55,12 @@ class EdgeDetectionAlgorithm {
             // 按角度扫描（每gridSize度扫描一次，0-180度即可覆盖所有方向）
             for (let angle = 0; angle < 180; angle += angleStep) {
                 const angleStartTime = performance.now();
-                const initialEdgeCount = edgePoints.size;
+                const initialEdgeCount = edgePoints.length;
                 
                 this.scanInDirection(angle, edgePoints, width, height, isPixelNotEmpty);
                 
                 const angleTime = performance.now() - angleStartTime;
-                const newEdgeCount = edgePoints.size - initialEdgeCount;
+                const newEdgeCount = edgePoints.length - initialEdgeCount;
                 angleTimings.push({angle, time: angleTime, newEdges: newEdgeCount});
                 angleCount++;
                 
@@ -81,7 +86,7 @@ class EdgeDetectionAlgorithm {
             
             // 绘制边缘点
             const drawStartTime = performance.now();
-            this.imageProcessor.drawPoints(edgePoints, '#007bff', 2);
+            this.imageProcessor.drawPoints(edgePoints, '#007bff', 1);
             const drawTime = performance.now() - drawStartTime;
             console.log(`🎨 绘制边缘点耗时: ${drawTime.toFixed(2)}ms`);
             
@@ -89,8 +94,8 @@ class EdgeDetectionAlgorithm {
             const totalTime = performance.now() - totalStartTime;
             const performanceStats = {
                 totalTime,
-                edgePointsCount: edgePoints.size,
-                processingEfficiency: (edgePoints.size / totalTime * 1000).toFixed(0),
+                edgePointsCount: edgePoints.length,
+                processingEfficiency: (edgePoints.length / totalTime * 1000).toFixed(0),
                 pixelProcessingSpeed: ((width * height) / totalTime * 1000).toFixed(0),
                 angleTimings,
                 scanTime: totalScanTime,
@@ -198,7 +203,7 @@ class EdgeDetectionAlgorithm {
                     linePixelsChecked++;
 
                     // 记录边缘点
-                    const edgePoint = `${centerX},${centerY}`;
+                    const edgePoint = {x: centerX, y: centerY};
                     if (!firstEdge) {
                         firstEdge = edgePoint;
                     }
@@ -208,13 +213,13 @@ class EdgeDetectionAlgorithm {
             
             totalPixelsChecked += linePixelsChecked;
             
-            // 添加找到的边缘点
+            // 添加找到的边缘点（避免重复）
             if (firstEdge) {
-                edgePoints.add(firstEdge);
+                this.addUniquePoint(edgePoints, firstEdge);
                 totalEdgePointsFound++;
             }
-            if (lastEdge && lastEdge !== firstEdge) {
-                edgePoints.add(lastEdge);
+            if (lastEdge && !this.pointsEqual(lastEdge, firstEdge)) {
+                this.addUniquePoint(edgePoints, lastEdge);
                 totalEdgePointsFound++;
             }
         }
@@ -222,6 +227,42 @@ class EdgeDetectionAlgorithm {
         // 输出详细的角度统计（仅对关键角度）
         if (angleDegrees % 30 === 0 || angleDegrees < 10) {
             console.log(`    🔎 角度 ${angleDegrees}°: 扫描线 ${totalScanLines} 条, 检测像素 ${totalPixelsChecked} 个, 发现边缘点 ${totalEdgePointsFound} 个`);
+        }
+    }
+    
+    /**
+     * 判断两个点是否相等
+     */
+    pointsEqual(point1, point2) {
+        return point1.x === point2.x && point1.y === point2.y;
+    }
+    
+    /**
+     * 添加唯一点到数组（避免重复）
+     */
+    addUniquePoint(points, newPoint) {
+        // 检查是否已存在相同的点
+        const exists = points.some(point => this.pointsEqual(point, newPoint));
+        if (!exists) {
+            points.push(newPoint);
+        }
+    }
+    
+    /**
+     * 将边缘点转换为不同格式
+     * @param {Array<{x: number, y: number}>} edgePoints - 边缘点数组
+     * @param {'object'|'string'|'array'} format - 输出格式
+     * @returns {Array} 转换后的数据
+     */
+    convertEdgePointsFormat(edgePoints, format = 'object') {
+        switch (format) {
+            case 'string':
+                return edgePoints.map(point => `${point.x},${point.y}`);
+            case 'array':
+                return edgePoints.map(point => [point.x, point.y]);
+            case 'object':
+            default:
+                return edgePoints; // 已经是对象格式
         }
     }
     
