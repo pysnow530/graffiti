@@ -101,26 +101,258 @@ class ImageProcessor {
     }
     
     /**
-     * 在画布上绘制点集
+     * 将散乱的点排序成路径
+     * @param {Array<{x: number, y: number}>} points - 点数组
+     * @returns {Array<{x: number, y: number}>} 排序后的点数组
+     */
+    sortPointsToPath(points) {
+        if (points.length <= 2) return points;
+        
+        console.log(`🔄 开始路径排序，原始点数: ${points.length}`);
+        const startTime = performance.now();
+        
+        // 复制点数组避免修改原数组
+        const availablePoints = [...points];
+        const sortedPath = [];
+        
+        // 从最左上角的点开始
+        let currentIndex = 0;
+        let minY = availablePoints[0].y;
+        let minX = availablePoints[0].x;
+        
+        for (let i = 1; i < availablePoints.length; i++) {
+            if (availablePoints[i].y < minY || 
+                (availablePoints[i].y === minY && availablePoints[i].x < minX)) {
+                currentIndex = i;
+                minY = availablePoints[i].y;
+                minX = availablePoints[i].x;
+            }
+        }
+        
+        // 使用最近邻算法构建路径
+        while (availablePoints.length > 0) {
+            const currentPoint = availablePoints.splice(currentIndex, 1)[0];
+            sortedPath.push(currentPoint);
+            
+            if (availablePoints.length === 0) break;
+            
+            // 找到距离当前点最近的下一个点
+            let nearestIndex = 0;
+            let minDistance = this.getDistance(currentPoint, availablePoints[0]);
+            
+            for (let i = 1; i < availablePoints.length; i++) {
+                const distance = this.getDistance(currentPoint, availablePoints[i]);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestIndex = i;
+                }
+            }
+            
+            currentIndex = nearestIndex;
+        }
+        
+        const sortTime = performance.now() - startTime;
+        console.log(`📏 路径排序完成，耗时: ${sortTime.toFixed(2)}ms`);
+        
+        return sortedPath;
+    }
+    
+    /**
+     * 道格拉斯-普克算法进行路径压缩
+     * @param {Array<{x: number, y: number}>} points - 路径点数组
+     * @param {number} tolerance - 容差值，越小保留的点越多
+     * @returns {Array<{x: number, y: number}>} 压缩后的点数组
+     */
+    douglasPeucker(points, tolerance = 2.0) {
+        if (points.length <= 2) return points;
+        
+        console.log(`🗜️ 开始道格拉斯-普克压缩，原始点数: ${points.length}，容差: ${tolerance}`);
+        const startTime = performance.now();
+        
+        const result = this.douglasPeuckerRecursive(points, tolerance);
+        
+        const compressTime = performance.now() - startTime;
+        const compressionRate = ((points.length - result.length) / points.length * 100).toFixed(1);
+        
+        console.log(`🗜️ 压缩完成，压缩后点数: ${result.length}，压缩率: ${compressionRate}%，耗时: ${compressTime.toFixed(2)}ms`);
+        
+        return result;
+    }
+    
+    /**
+     * 道格拉斯-普克算法递归实现
+     * @param {Array<{x: number, y: number}>} points - 点数组
+     * @param {number} tolerance - 容差值
+     * @returns {Array<{x: number, y: number}>} 简化后的点数组
+     */
+    douglasPeuckerRecursive(points, tolerance) {
+        if (points.length <= 2) return points;
+        
+        // 找到距离首尾连线最远的点
+        let maxDistance = 0;
+        let maxIndex = 0;
+        const firstPoint = points[0];
+        const lastPoint = points[points.length - 1];
+        
+        for (let i = 1; i < points.length - 1; i++) {
+            const distance = this.getPointToLineDistance(points[i], firstPoint, lastPoint);
+            if (distance > maxDistance) {
+                maxDistance = distance;
+                maxIndex = i;
+            }
+        }
+        
+        // 如果最大距离大于容差，则递归处理
+        if (maxDistance > tolerance) {
+            // 递归处理前半部分和后半部分
+            const firstHalf = this.douglasPeuckerRecursive(points.slice(0, maxIndex + 1), tolerance);
+            const secondHalf = this.douglasPeuckerRecursive(points.slice(maxIndex), tolerance);
+            
+            // 合并结果，去除重复的中间点
+            return firstHalf.slice(0, -1).concat(secondHalf);
+        } else {
+            // 如果最大距离小于容差，则只保留首尾两个点
+            return [firstPoint, lastPoint];
+        }
+    }
+    
+    /**
+     * 计算两点之间的距离
+     * @param {Object} point1 - 第一个点 {x, y}
+     * @param {Object} point2 - 第二个点 {x, y}
+     * @returns {number} 距离
+     */
+    getDistance(point1, point2) {
+        const dx = point2.x - point1.x;
+        const dy = point2.y - point1.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    /**
+     * 计算点到直线的距离
+     * @param {Object} point - 点 {x, y}
+     * @param {Object} lineStart - 直线起点 {x, y}
+     * @param {Object} lineEnd - 直线终点 {x, y}
+     * @returns {number} 距离
+     */
+    getPointToLineDistance(point, lineStart, lineEnd) {
+        const A = lineEnd.y - lineStart.y;
+        const B = lineStart.x - lineEnd.x;
+        const C = lineEnd.x * lineStart.y - lineStart.x * lineEnd.y;
+        
+        const denominator = Math.sqrt(A * A + B * B);
+        if (denominator === 0) return 0; // 起点和终点重合
+        
+        return Math.abs(A * point.x + B * point.y + C) / denominator;
+    }
+    
+    /**
+     * 预处理边缘点：排序 + 压缩
+     * @param {Array<{x: number, y: number}>} points - 原始边缘点
+     * @param {Object} options - 处理选项
+     * @param {boolean} options.enableSort - 是否启用排序，默认true
+     * @param {boolean} options.enableCompress - 是否启用压缩，默认true
+     * @param {number} options.tolerance - 道格拉斯-普克算法容差，默认2.0
+     * @returns {Array<{x: number, y: number}>} 处理后的点数组
+     */
+    preprocessEdgePoints(points, options = {}) {
+        const {
+            enableSort = true,
+            enableCompress = true,
+            tolerance = 2.0
+        } = options;
+        
+        if (points.length === 0) return points;
+        
+        console.log(`🎯 开始边缘点预处理，原始点数: ${points.length}`);
+        const totalStartTime = performance.now();
+        
+        let processedPoints = points;
+        
+        // 第一步：路径排序
+        if (enableSort) {
+            processedPoints = this.sortPointsToPath(processedPoints);
+        }
+        
+        // 第二步：道格拉斯-普克压缩
+        if (enableCompress) {
+            processedPoints = this.douglasPeucker(processedPoints, tolerance);
+        }
+        
+        const totalTime = performance.now() - totalStartTime;
+        const reductionRate = ((points.length - processedPoints.length) / points.length * 100).toFixed(1);
+        
+        console.log(`✅ 边缘点预处理完成！`);
+        console.log(`📊 处理结果: ${points.length} → ${processedPoints.length} 个点 (减少${reductionRate}%)`);
+        console.log(`📊 总耗时: ${totalTime.toFixed(2)}ms`);
+        console.log('='.repeat(50));
+        
+        return processedPoints;
+    }
+    
+    /**
+     * 绘制轮廓线（专门用于边缘检测结果）
+     * @param {Array<{x: number, y: number}>} points - 边缘点数组
+     * @param {Object} options - 绘制配置
+     * @returns {void}
+     */
+    drawContour(points, options = {}) {
+        const defaultOptions = {
+            color: '#007bff',
+            radius: 2,
+            drawLines: true,
+            lineWidth: 1,
+            lineColor: options.color || '#007bff',
+            drawPoints: true
+        };
+        
+        const finalOptions = { ...defaultOptions, ...options };
+        
+        this.drawPoints(
+            points, 
+            finalOptions.color, 
+            finalOptions.radius, 
+            {
+                drawLines: finalOptions.drawLines,
+                lineWidth: finalOptions.lineWidth,
+                lineColor: finalOptions.lineColor,
+                drawPoints: finalOptions.drawPoints
+            }
+        );
+    }
+    
+    /**
+     * 在画布上绘制点集（支持连线）
      * @param {Array} points - 点数组，支持两种格式：
      *   - 推荐：对象格式 [{x: number, y: number}, ...]
      *   - 兼容：字符串格式 ["x,y", ...]
      * @param {string} color - 绘制颜色
      * @param {number} radius - 点的半径
+     * @param {Object} options - 绘制选项
+     * @param {boolean} options.drawLines - 是否在点之间绘制连线，默认true
+     * @param {number} options.lineWidth - 连线宽度，默认1
+     * @param {string} options.lineColor - 连线颜色，默认与点颜色相同
+     * @param {boolean} options.drawPoints - 是否绘制点，默认true
      */
-    drawPoints(points, color = '#007bff', radius = 2) {
+    drawPoints(points, color = '#007bff', radius = 2, options = {}) {
+        // 解析选项
+        const {
+            drawLines = true,
+            lineWidth = 1,
+            lineColor = color,
+            drawPoints = true
+        } = options;
+        
+        if (points.length === 0) return;
+        
         // 保存当前绘图状态
         const originalStrokeStyle = this.ctx.strokeStyle;
         const originalFillStyle = this.ctx.fillStyle;
         const originalLineWidth = this.ctx.lineWidth;
         
-        // 设置绘制样式
-        this.ctx.fillStyle = color;
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = 1;
-        
-        // 绘制每个点
-        points.forEach(point => {
+        // 转换所有点为标准格式
+        const normalizedPoints = [];
+        for (const point of points) {
             let x, y;
             if (typeof point === 'string') {
                 // 向后兼容：支持字符串格式 "x,y"
@@ -131,14 +363,41 @@ class ImageProcessor {
                 y = point.y;
             } else {
                 console.warn('无效的点格式:', point);
-                return;
+                continue;
+            }
+            normalizedPoints.push({x, y});
+        }
+        
+        if (normalizedPoints.length === 0) return;
+        
+        // 1. 绘制连线（如果启用且有足够的点）
+        if (drawLines && normalizedPoints.length > 1) {
+            this.ctx.strokeStyle = lineColor;
+            this.ctx.lineWidth = lineWidth;
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(normalizedPoints[0].x, normalizedPoints[0].y);
+            
+            for (let i = 1; i < normalizedPoints.length; i++) {
+                this.ctx.lineTo(normalizedPoints[i].x, normalizedPoints[i].y);
             }
             
-            // 绘制小圆点
-            this.ctx.beginPath();
-            this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
-            this.ctx.fill();
-        });
+            this.ctx.stroke();
+        }
+        
+        // 2. 绘制点（如果启用）
+        if (drawPoints) {
+            this.ctx.fillStyle = color;
+            this.ctx.strokeStyle = color;
+            
+            for (const point of normalizedPoints) {
+                this.ctx.beginPath();
+                this.ctx.arc(point.x, point.y, radius, 0, 2 * Math.PI);
+                this.ctx.fill();
+            }
+        }
         
         // 恢复原始绘图状态
         this.ctx.strokeStyle = originalStrokeStyle;
