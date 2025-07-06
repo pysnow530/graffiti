@@ -25,7 +25,10 @@ class GraffitiApp {
             gridColor: '#00ff00', // 网格线颜色（绿色）
             gridLineWidth: 1,  // 网格线宽度
             drawGridPoints: false, // 是否绘制网格点
-            gridPointRadius: 2 // 网格点半径
+            gridPointRadius: 2, // 网格点半径
+            drawSubdivisions: true, // 是否绘制6等分网格
+            subdivisionColor: '#00ff00', // 等分线颜色（与主网格相同）
+            subdivisionLineWidth: 1 // 等分线宽度
         };
         
         // 边缘点预处理配置
@@ -178,12 +181,15 @@ class GraffitiApp {
                         drawLines: this.edgeDrawConfig.drawLines
                     });
 
-                                         if (gridData) {
+                        if (gridData) {
                          this.imageProcessor.drawGrid(gridData, {
                              gridColor: this.edgeDrawConfig.gridColor,
                              gridLineWidth: this.edgeDrawConfig.gridLineWidth,
                              drawGridPoints: this.edgeDrawConfig.drawGridPoints,
-                             gridPointRadius: this.edgeDrawConfig.gridPointRadius
+                             gridPointRadius: this.edgeDrawConfig.gridPointRadius,
+                             drawSubdivisions: this.edgeDrawConfig.drawSubdivisions,
+                             subdivisionColor: this.edgeDrawConfig.subdivisionColor,
+                             subdivisionLineWidth: this.edgeDrawConfig.subdivisionLineWidth
                          });
                      }
                 } else {
@@ -217,7 +223,9 @@ class GraffitiApp {
             if (gridData) {
                 stats.gridData = {
                     connectionCount: gridData.length,
-                    tolerance: this.edgeDrawConfig.tolerance
+                    tolerance: this.edgeDrawConfig.tolerance,
+                    subdivisionEnabled: this.edgeDrawConfig.drawSubdivisions,
+                    estimatedSubdivisionLines: this.edgeDrawConfig.drawSubdivisions ? (gridData.length - 1) * 7 : 0
                 };
             }
             
@@ -229,7 +237,7 @@ class GraffitiApp {
             const splitInfo = stats.splitResult ? 
                 `，切分为两条线 (${stats.splitResult.firstArrayCount}+${stats.splitResult.secondArrayCount}个点)` : '';
             const gridInfo = gridData ? 
-                `，生成 ${gridData.length} 组网格连接` : '';
+                `，生成 ${gridData.length} 组网格连接${this.edgeDrawConfig.drawSubdivisions ? '（含6等分）' : ''}` : '';
             const drawInfo = this.edgeDrawConfig.enabled ? 
                 `，绘制耗时 ${drawTime.toFixed(0)}ms` : 
                 '（未绘制）';
@@ -272,7 +280,42 @@ class GraffitiApp {
         this.edgeProcessConfig = { ...this.edgeProcessConfig, ...config };
     }
     
-
+    /**
+     * 测试6等分网格功能
+     * 创建一些测试数据并绘制6等分网格
+     */
+    testSubdivisionGrid() {
+        console.log('🧪 开始测试6等分网格功能');
+        
+        // 创建测试数据：4个垂直连接
+        const testGridData = [
+            [{x: 100, y: 100}, {x: 100, y: 200}],  // 第一条垂直线
+            [{x: 150, y: 120}, {x: 150, y: 180}],  // 第二条垂直线
+            [{x: 200, y: 90}, {x: 200, y: 210}],   // 第三条垂直线
+            [{x: 250, y: 110}, {x: 250, y: 190}]   // 第四条垂直线
+        ];
+        
+        // 清空画布
+        this.drawingEngine.clearCanvas();
+        
+        // 绘制6等分网格
+        this.imageProcessor.drawGrid(testGridData, {
+            gridColor: '#00ff00',          // 绿色主网格
+            gridLineWidth: 2,
+            drawSubdivisions: true,        // 启用6等分
+            subdivisionColor: '#00ff00',   // 等分线颜色（与主网格相同）
+            subdivisionLineWidth: 1,
+            drawGridPoints: true,          // 显示网格点
+            gridPointRadius: 3,
+            gridPointColor: '#ff0000'      // 红色网格点
+        });
+        
+        console.log('✅ 6等分网格测试完成');
+        console.log('📊 测试数据：4组垂直连接，每组6等分，预期产生21条水平连线（与垂直线颜色一致）');
+        
+        // 显示测试结果通知
+        this.showNotification('6等分网格测试完成！统一颜色网格效果', 'success');
+    }
     
     /**
      * 显示通知消息
@@ -319,14 +362,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray, 10);
     // graffitiApp.imageProcessor.drawGrid(gridData);
     //
-    // 3. 自定义网格样式：
-    // graffitiApp.imageProcessor.drawGrid(gridData, {
-    //     gridColor: '#ff6b35',          // 橙色网格线
-    //     gridLineWidth: 2,              // 更粗的线条
-    //     drawGridPoints: true,          // 显示网格点
-    //     gridPointRadius: 3,            // 更大的网格点
-    //     gridPointColor: '#dc3545'      // 红色网格点
-    // });
+         // 3. 自定义网格样式：
+     // graffitiApp.imageProcessor.drawGrid(gridData, {
+     //     gridColor: '#ff6b35',          // 橙色网格线
+     //     gridLineWidth: 2,              // 更粗的线条
+     //     drawGridPoints: true,          // 显示网格点
+     //     gridPointRadius: 3,            // 更大的网格点
+     //     gridPointColor: '#dc3545',     // 红色网格点
+     //     drawSubdivisions: true,        // 绘制6等分网格
+     //     subdivisionColor: '#ff6b35',   // 等分线颜色（与主网格相同）
+     //     subdivisionLineWidth: 1        // 等分线宽度
+     // });
     //
     // 4. 切分线自定义样式：
     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
@@ -349,20 +395,41 @@ document.addEventListener('DOMContentLoaded', () => {
     // // 边缘检测现在会自动执行：切分 -> 生成网格 -> 绘制所有内容
     // graffitiApp.handleEdgeDetection(); 
     //
-    // 7. 配置网格参数：
-    // graffitiApp.setEdgeDrawConfig({
-    //     tolerance: 15,                 // 网格生成容差
-    //     gridColor: '#00ffff',          // 青色网格
-    //     gridLineWidth: 2,              // 网格线宽度
-    //     drawGridPoints: true,          // 显示网格点
-    //     gridPointRadius: 4             // 网格点大小
-    // });
+         // 7. 配置6等分网格参数：
+     // graffitiApp.setEdgeDrawConfig({
+     //     tolerance: 15,                 // 网格生成容差
+     //     gridColor: '#00ffff',          // 青色网格
+     //     gridLineWidth: 2,              // 网格线宽度
+     //     drawGridPoints: true,          // 显示网格点
+     //     gridPointRadius: 4,            // 网格点大小
+     //     drawSubdivisions: true,        // 启用6等分网格
+     //     subdivisionColor: '#00ffff',   // 等分线颜色（与主网格相同）
+     //     subdivisionLineWidth: 2        // 等分线宽度
+     // });
     //
-    // 8. 分析结果：
-    // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
-    // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray);
-    // console.log('第一条线点数:', splitResult.stats.firstArrayCount);
-    // console.log('第二条线点数:', splitResult.stats.secondArrayCount);
-    // console.log('网格连接数:', gridData.length);
-    // console.log('最大X值:', splitResult.stats.maxX);
+         // 8. 单独控制6等分网格：
+     // // 只绘制主网格，不绘制6等分
+     // graffitiApp.imageProcessor.drawGrid(gridData, {
+     //     drawSubdivisions: false        // 关闭6等分网格
+     // });
+     //
+     // // 只绘制6等分网格，不绘制主网格
+     // graffitiApp.imageProcessor.drawGrid(gridData, {
+     //     gridColor: 'transparent',      // 隐藏主网格
+     //     drawSubdivisions: true,        // 启用6等分网格
+     //     subdivisionColor: 'transparent', // 等分线颜色（自定义，可不同于主网格）
+     //     subdivisionLineWidth: 1
+     // });
+     //
+     // 9. 测试6等分网格功能：
+     // graffitiApp.testSubdivisionGrid();
+     //
+     // 10. 分析结果：
+     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
+     // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray);
+     // console.log('第一条线点数:', splitResult.stats.firstArrayCount);
+     // console.log('第二条线点数:', splitResult.stats.secondArrayCount);
+     // console.log('网格连接数:', gridData.length);
+     // console.log('最大X值:', splitResult.stats.maxX);
+     // console.log('6等分网格:', '每个垂直连接被分为6段，产生7个等分点，横向线与纵向线颜色一致');
 }); 

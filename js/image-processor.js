@@ -638,6 +638,9 @@ class ImageProcessor {
      * @param {boolean} options.drawGridPoints - 是否绘制网格点（默认false）
      * @param {number} options.gridPointRadius - 网格点半径（默认2）
      * @param {string} options.gridPointColor - 网格点颜色（默认与网格线相同）
+     * @param {boolean} options.drawSubdivisions - 是否绘制6等分网格（默认true）
+     * @param {string} options.subdivisionColor - 等分线颜色（默认与主网格相同）
+     * @param {number} options.subdivisionLineWidth - 等分线宽度（默认1）
      */
     drawGrid(gridData, options = {}) {
         if (!gridData || gridData.length === 0) {
@@ -645,13 +648,16 @@ class ImageProcessor {
             return;
         }
         
-        const defaultOptions = {
-            gridColor: '#00ff00',          // 绿色
-            gridLineWidth: 1,
-            drawGridPoints: false,
-            gridPointRadius: 2,
-            gridPointColor: null           // 默认与网格线颜色相同
-        };
+                 const defaultOptions = {
+             gridColor: '#00ff00',          // 绿色
+             gridLineWidth: 1,
+             drawGridPoints: false,
+             gridPointRadius: 2,
+             gridPointColor: null,          // 默认与网格线颜色相同
+             drawSubdivisions: true,        // 是否绘制6等分网格
+             subdivisionColor: '#00ff00',   // 等分线颜色（与主网格相同）
+             subdivisionLineWidth: 1        // 等分线宽度
+         };
         
         const finalOptions = { ...defaultOptions, ...options };
         finalOptions.gridPointColor = finalOptions.gridPointColor || finalOptions.gridColor;
@@ -669,7 +675,7 @@ class ImageProcessor {
         this.ctx.lineWidth = finalOptions.gridLineWidth;
         this.ctx.lineCap = 'round';
         
-        // 绘制连线
+        // 绘制主要的垂直连线
         let drawnLines = 0;
         for (const pointPair of gridData) {
             if (pointPair && pointPair.length === 2) {
@@ -686,6 +692,11 @@ class ImageProcessor {
                     drawnLines++;
                 }
             }
+        }
+        
+        // 绘制6等分网格
+        if (finalOptions.drawSubdivisions) {
+            this.drawSubdivisionGrid(gridData, finalOptions);
         }
         
         // 绘制网格点（如果启用）
@@ -724,6 +735,90 @@ class ImageProcessor {
         this.ctx.lineWidth = originalLineWidth;
         this.ctx.lineCap = originalLineCap;
         
-        console.log(`✅ 网格绘制完成！绘制了 ${drawnLines} 条连线，颜色: ${finalOptions.gridColor}`);
+        console.log(`✅ 网格绘制完成！绘制了 ${drawnLines} 条垂直连线，颜色: ${finalOptions.gridColor}`);
+    }
+    
+    /**
+     * 绘制6等分细分网格
+     * @param {Array<Array<{x: number, y: number}>>} gridData - 网格数据
+     * @param {Object} options - 绘制配置
+     */
+    drawSubdivisionGrid(gridData, options) {
+        if (!gridData || gridData.length < 2) {
+            console.warn('需要至少2组数据才能绘制等分网格');
+            return;
+        }
+        
+        console.log(`🔷 开始绘制6等分网格`);
+        
+        // 设置等分线样式（使用与主网格相同的颜色）
+        this.ctx.strokeStyle = options.gridColor;
+        this.ctx.lineWidth = options.subdivisionLineWidth;
+        
+        // 计算每组的6等分点
+        const subdivisionPoints = [];
+        for (let i = 0; i < gridData.length; i++) {
+            const pointPair = gridData[i];
+            if (pointPair && pointPair.length === 2) {
+                const [point1, point2] = pointPair;
+                
+                if (point1 && point2 && 
+                    typeof point1.x === 'number' && typeof point1.y === 'number' &&
+                    typeof point2.x === 'number' && typeof point2.y === 'number') {
+                    
+                    const divisions = this.calculateSubdivisionPoints(point1, point2, 6);
+                    subdivisionPoints.push(divisions);
+                }
+            }
+        }
+        
+        console.log(`📐 计算了 ${subdivisionPoints.length} 组等分点，每组 ${subdivisionPoints[0] ? subdivisionPoints[0].length : 0} 个点`);
+        
+        // 绘制相邻组之间的水平连线
+        let horizontalLines = 0;
+        for (let i = 0; i < subdivisionPoints.length - 1; i++) {
+            const currentDivisions = subdivisionPoints[i];
+            const nextDivisions = subdivisionPoints[i + 1];
+            
+            if (currentDivisions && nextDivisions && 
+                currentDivisions.length === nextDivisions.length) {
+                
+                // 为每个等分点绘制水平连线
+                for (let j = 0; j < currentDivisions.length; j++) {
+                    const startPoint = currentDivisions[j];
+                    const endPoint = nextDivisions[j];
+                    
+                    if (startPoint && endPoint) {
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(startPoint.x, startPoint.y);
+                        this.ctx.lineTo(endPoint.x, endPoint.y);
+                        this.ctx.stroke();
+                        horizontalLines++;
+                    }
+                }
+            }
+        }
+        
+        console.log(`🔗 绘制了 ${horizontalLines} 条水平等分连线`);
+    }
+    
+    /**
+     * 计算两点之间的n等分点
+     * @param {Object} point1 - 起始点 {x, y}
+     * @param {Object} point2 - 结束点 {x, y}
+     * @param {number} divisions - 等分数量
+     * @returns {Array<{x: number, y: number}>} 等分点数组（包含起始点和结束点）
+     */
+    calculateSubdivisionPoints(point1, point2, divisions) {
+        const points = [];
+        
+        for (let i = 0; i <= divisions; i++) {
+            const ratio = i / divisions;
+            const x = point1.x + (point2.x - point1.x) * ratio;
+            const y = point1.y + (point2.y - point1.y) * ratio;
+            points.push({ x, y });
+        }
+        
+        return points;
     }
 }
