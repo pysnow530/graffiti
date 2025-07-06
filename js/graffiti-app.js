@@ -213,28 +213,7 @@ class GraffitiApp {
         this.edgeProcessConfig = { ...this.edgeProcessConfig, ...config };
     }
     
-    /**
-     * 手动绘制边缘点
-     * @param {Array<{x: number, y: number}>} edgePoints - 边缘点数组
-     * @param {Object} drawConfig - 可选的绘制配置
-     * @param {Object} processConfig - 可选的预处理配置
-     * @param {boolean} skipPreprocess - 是否跳过预处理（默认false）
-     */
-    drawEdgePoints(edgePoints, drawConfig = null, processConfig = null, skipPreprocess = false) {
-        let processedPoints = edgePoints;
-        
-        // 预处理边缘点
-        if (!skipPreprocess && (this.edgeProcessConfig.enableSort || this.edgeProcessConfig.enableCompress)) {
-            const config = processConfig || this.edgeProcessConfig;
-            processedPoints = this.imageProcessor.preprocessEdgePoints(edgePoints, config);
-        }
-        
-        // 绘制处理后的点
-        const finalDrawConfig = { ...this.edgeDrawConfig, ...drawConfig };
-        this.imageProcessor.drawContour(processedPoints, finalDrawConfig);
-        
-        return processedPoints; // 返回处理后的点数组
-    }
+
     
     /**
      * 显示通知消息

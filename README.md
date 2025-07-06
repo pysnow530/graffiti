@@ -215,14 +215,13 @@ app.setEdgeProcessConfig({
     tolerance: 2.0         // 压缩容差（越小保留的点越多）
 });
 
-// 手动绘制边缘点（包含预处理）
-const processedPoints = app.drawEdgePoints(edgePoints, 
-    { color: '#00ff00', radius: 3 },  // 绘制配置
-    { tolerance: 1.5 }                // 预处理配置
-);
-
-// 绘制时跳过预处理
-app.drawEdgePoints(edgePoints, null, null, true); // skipPreprocess = true
+// 手动绘制边缘点（通过 imageProcessor 直接绘制）
+app.imageProcessor.drawContour(edgePoints, { 
+    color: '#00ff00', 
+    radius: 3,
+    drawLines: true,
+    drawPoints: true
+});
 
 // 只执行算法，不自动绘制
 app.setEdgeDrawConfig({ enabled: false });

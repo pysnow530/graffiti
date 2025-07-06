@@ -115,16 +115,13 @@ class ImageProcessor {
         const availablePoints = [...points];
         const sortedPath = [];
         
-        // 从最左上角的点开始
+        // 从x值最小的点开始
         let currentIndex = 0;
-        let minY = availablePoints[0].y;
         let minX = availablePoints[0].x;
         
         for (let i = 1; i < availablePoints.length; i++) {
-            if (availablePoints[i].y < minY || 
-                (availablePoints[i].y === minY && availablePoints[i].x < minX)) {
+            if (availablePoints[i].x < minX) {
                 currentIndex = i;
-                minY = availablePoints[i].y;
                 minX = availablePoints[i].x;
             }
         }
@@ -279,6 +276,19 @@ class ImageProcessor {
             processedPoints = this.douglasPeucker(processedPoints, tolerance);
         }
         
+        // 第三步：检查并处理首尾点合并（如果是闭合轮廓）
+        if (processedPoints.length > 2) {
+            const firstPoint = processedPoints[0];
+            const lastPoint = processedPoints[processedPoints.length - 1];
+            
+            // 如果首尾点距离很近，认为是闭合轮廓，移除最后一个点
+            const distance = this.getDistance(firstPoint, lastPoint);
+            if (distance <= tolerance) {
+                processedPoints = processedPoints.slice(0, -1);
+                console.log(`🔄 检测到闭合轮廓，移除重复的末尾点`);
+            }
+        }
+        
         const totalTime = performance.now() - totalStartTime;
         const reductionRate = ((points.length - processedPoints.length) / points.length * 100).toFixed(1);
         
@@ -377,14 +387,31 @@ class ImageProcessor {
             this.ctx.lineCap = 'round';
             this.ctx.lineJoin = 'round';
             
-            this.ctx.beginPath();
-            this.ctx.moveTo(normalizedPoints[0].x, normalizedPoints[0].y);
-            
-            for (let i = 1; i < normalizedPoints.length; i++) {
-                this.ctx.lineTo(normalizedPoints[i].x, normalizedPoints[i].y);
+            // 绘制除最后一条边之外的所有连线
+            for (let i = 0; i < normalizedPoints.length - 1; i++) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(normalizedPoints[i].x, normalizedPoints[i].y);
+                this.ctx.lineTo(normalizedPoints[i + 1].x, normalizedPoints[i + 1].y);
+                this.ctx.stroke();
             }
             
-            this.ctx.stroke();
+            // 单独标识第一个点（用不同颜色或样式）
+            if (normalizedPoints.length > 0) {
+                const firstPoint = normalizedPoints[0];
+                const originalFillStyle = this.ctx.fillStyle;
+                const originalStrokeStyle = this.ctx.strokeStyle;
+                
+                // 用红色圆圈标识第一个点
+                this.ctx.fillStyle = '#ff0000';
+                this.ctx.strokeStyle = '#ff0000';
+                this.ctx.beginPath();
+                this.ctx.arc(firstPoint.x, firstPoint.y, radius + 2, 0, 2 * Math.PI);
+                this.ctx.fill();
+                
+                // 恢复原始样式
+                this.ctx.fillStyle = originalFillStyle;
+                this.ctx.strokeStyle = originalStrokeStyle;
+            }
         }
         
         // 2. 绘制点（如果启用）
