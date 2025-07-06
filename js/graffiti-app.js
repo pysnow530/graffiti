@@ -136,6 +136,8 @@ class GraffitiApp {
             let processTime = 0;
             let drawTime = 0;
             let processedPoints = edgePoints;
+            let firstArray = [];
+            let secondArray = [];
             
             // 预处理边缘点：排序 + 压缩
             if (this.edgeProcessConfig.enableSort || this.edgeProcessConfig.enableCompress) {
@@ -147,12 +149,51 @@ class GraffitiApp {
                 processTime = performance.now() - processStartTime;
                 
                 console.log(`🔧 边缘点预处理耗时: ${processTime.toFixed(2)}ms`);
+                
+                // 找到x值最大的点并切分数组
+                if (processedPoints.length > 0) {
+                    let maxXIndex = 0;
+                    let maxX = processedPoints[0].x;
+                    
+                    // 找到x值最大的点
+                    for (let i = 1; i < processedPoints.length; i++) {
+                        if (processedPoints[i].x > maxX) {
+                            maxX = processedPoints[i].x;
+                            maxXIndex = i;
+                        }
+                    }
+                    
+                    // 切分成两个数组，切分点规划到第一个数组中
+                    firstArray = processedPoints.slice(0, maxXIndex + 1);
+                    secondArray = processedPoints.slice(maxXIndex + 1).reverse();
+                    
+                    console.log(`✂️ 按最大x值切分数组: 第一个数组${firstArray.length}个点，第二个数组${secondArray.length}个点`);
+                    
+                    // 这里可以根据需要处理切分后的数组
+                    // 例如：processedPoints = firstArray; // 只保留第一个数组
+                    // 或者：processedPoints = [...firstArray, ...secondArray]; // 重新组合
+                }
             }
             
             // 根据配置决定是否绘制边缘点
             if (this.edgeDrawConfig.enabled) {
                 const drawStartTime = performance.now();
-                this.imageProcessor.drawContour(processedPoints, this.edgeDrawConfig);
+                
+                // 绘制第一个数组（使用默认配置）
+                if (firstArray && firstArray.length > 0) {
+                    this.imageProcessor.drawContour(firstArray, this.edgeDrawConfig);
+                }
+                
+                // 绘制第二个数组（使用不同颜色）
+                if (secondArray && secondArray.length > 0) {
+                    const secondArrayConfig = {
+                        ...this.edgeDrawConfig,
+                        color: '#ff0000',  // 红色
+                        lineColor: '#ff0000'  // 红色连线
+                    };
+                    this.imageProcessor.drawContour(secondArray, secondArrayConfig);
+                }
+                
                 drawTime = performance.now() - drawStartTime;
                 
                 console.log(`🎨 绘制边缘轮廓耗时: ${drawTime.toFixed(2)}ms`);
