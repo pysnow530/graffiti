@@ -20,7 +20,12 @@ class GraffitiApp {
             drawLines: true,   // 是否绘制连线
             lineWidth: 1,      // 连线宽度
             lineColor: '#007bff', // 连线颜色（默认与点颜色相同）
-            drawPoints: true   // 是否绘制点
+            drawPoints: true,  // 是否绘制点
+            tolerance: 10,     // 网格生成的容差（像素）
+            gridColor: '#00ff00', // 网格线颜色（绿色）
+            gridLineWidth: 1,  // 网格线宽度
+            drawGridPoints: false, // 是否绘制网格点
+            gridPointRadius: 2 // 网格点半径
         };
         
         // 边缘点预处理配置
@@ -137,6 +142,7 @@ class GraffitiApp {
             let drawTime = 0;
             let processedPoints = edgePoints;
             let splitResult = null;
+            let gridData = null;
             
             // 预处理边缘点：排序 + 压缩
             if (this.edgeProcessConfig.enableSort || this.edgeProcessConfig.enableCompress) {
@@ -152,6 +158,8 @@ class GraffitiApp {
                 // 切分成两条线
                 if (processedPoints.length > 0) {
                     splitResult = this.imageProcessor.splitPointsAtRightmost(processedPoints);
+                    gridData = this.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray, this.edgeDrawConfig.tolerance);
+                    console.log('网格数据:', gridData);
                 }
             }
             
@@ -169,6 +177,15 @@ class GraffitiApp {
                         drawPoints: this.edgeDrawConfig.drawPoints,
                         drawLines: this.edgeDrawConfig.drawLines
                     });
+
+                                         if (gridData) {
+                         this.imageProcessor.drawGrid(gridData, {
+                             gridColor: this.edgeDrawConfig.gridColor,
+                             gridLineWidth: this.edgeDrawConfig.gridLineWidth,
+                             drawGridPoints: this.edgeDrawConfig.drawGridPoints,
+                             gridPointRadius: this.edgeDrawConfig.gridPointRadius
+                         });
+                     }
                 } else {
                     // 如果没有切分结果，使用原始方式绘制
                     this.imageProcessor.drawContour(processedPoints, this.edgeDrawConfig);
@@ -196,6 +213,14 @@ class GraffitiApp {
                 };
             }
             
+            // 添加网格统计信息
+            if (gridData) {
+                stats.gridData = {
+                    connectionCount: gridData.length,
+                    tolerance: this.edgeDrawConfig.tolerance
+                };
+            }
+            
             console.log(`📊 包含预处理和绘制的总耗时: ${stats.totalTimeWithProcessAndDraw.toFixed(2)}ms`);
             
             // 构建通知消息
@@ -203,10 +228,12 @@ class GraffitiApp {
                 `，预处理后 ${processedPoints.length} 个点 (压缩${stats.compressionRate}%)` : '';
             const splitInfo = stats.splitResult ? 
                 `，切分为两条线 (${stats.splitResult.firstArrayCount}+${stats.splitResult.secondArrayCount}个点)` : '';
+            const gridInfo = gridData ? 
+                `，生成 ${gridData.length} 组网格连接` : '';
             const drawInfo = this.edgeDrawConfig.enabled ? 
                 `，绘制耗时 ${drawTime.toFixed(0)}ms` : 
                 '（未绘制）';
-            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点${processInfo}${splitInfo}，算法耗时 ${stats.totalTime.toFixed(0)}ms${drawInfo}`;
+            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点${processInfo}${splitInfo}${gridInfo}，算法耗时 ${stats.totalTime.toFixed(0)}ms${drawInfo}`;
             this.showNotification(message, 'success');
         };
         
@@ -280,18 +307,28 @@ class GraffitiApp {
 document.addEventListener('DOMContentLoaded', () => {
     window.graffitiApp = new GraffitiApp();
     
-    // 切分功能使用示例（在浏览器控制台中运行）
+    // 网格和切分功能使用示例（在浏览器控制台中运行）
     // 
     // 1. 基本切分操作（通过 imageProcessor）：
     // const points = [{x: 100, y: 100}, {x: 200, y: 150}, {x: 300, y: 100}, {x: 250, y: 200}];
     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
     // console.log('切分结果:', splitResult);
     //
-    // 2. 切分并绘制：
+    // 2. 生成和绘制网格：
     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
-    // graffitiApp.imageProcessor.drawSplitLines(splitResult);
+    // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray, 10);
+    // graffitiApp.imageProcessor.drawGrid(gridData);
     //
-    // 3. 自定义绘制样式：
+    // 3. 自定义网格样式：
+    // graffitiApp.imageProcessor.drawGrid(gridData, {
+    //     gridColor: '#ff6b35',          // 橙色网格线
+    //     gridLineWidth: 2,              // 更粗的线条
+    //     drawGridPoints: true,          // 显示网格点
+    //     gridPointRadius: 3,            // 更大的网格点
+    //     gridPointColor: '#dc3545'      // 红色网格点
+    // });
+    //
+    // 4. 切分线自定义样式：
     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
     // graffitiApp.imageProcessor.drawSplitLines(splitResult, {
     //     firstLineColor: '#ff6b35',     // 橙色第一条线
@@ -302,21 +339,30 @@ document.addEventListener('DOMContentLoaded', () => {
     //     drawLines: true
     // });
     //
-    // 4. 完整流程（预处理 -> 切分 -> 绘制）：
+    // 5. 完整流程（预处理 -> 切分 -> 网格 -> 绘制）：
     // const rawPoints = [{x: 50, y: 100}, {x: 150, y: 50}, {x: 250, y: 100}, {x: 200, y: 150}];
     // const splitResult = graffitiApp.imageProcessor.processAndSplitPoints(rawPoints);
+    // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray);
+    // graffitiApp.imageProcessor.drawGrid(gridData);
     //
-    // 5. 只处理不绘制：
-    // const splitResult = graffitiApp.imageProcessor.processAndSplitPoints(rawPoints, null, false);
-    //
-    // 6. 结合边缘检测使用：
-    // // 边缘检测现在会自动执行切分和绘制
+    // 6. 边缘检测自动处理：
+    // // 边缘检测现在会自动执行：切分 -> 生成网格 -> 绘制所有内容
     // graffitiApp.handleEdgeDetection(); 
     //
-    // 7. 分析切分结果：
+    // 7. 配置网格参数：
+    // graffitiApp.setEdgeDrawConfig({
+    //     tolerance: 15,                 // 网格生成容差
+    //     gridColor: '#00ffff',          // 青色网格
+    //     gridLineWidth: 2,              // 网格线宽度
+    //     drawGridPoints: true,          // 显示网格点
+    //     gridPointRadius: 4             // 网格点大小
+    // });
+    //
+    // 8. 分析结果：
     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
+    // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray);
     // console.log('第一条线点数:', splitResult.stats.firstArrayCount);
     // console.log('第二条线点数:', splitResult.stats.secondArrayCount);
-    // console.log('最大X值索引:', splitResult.stats.maxXIndex);
+    // console.log('网格连接数:', gridData.length);
     // console.log('最大X值:', splitResult.stats.maxX);
 }); 

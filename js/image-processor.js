@@ -584,4 +584,146 @@ class ImageProcessor {
         
         return splitResult;
     }
-} 
+
+    /**
+     * 根据两个数组生成网格数据
+     * @param {Array<{x: number, y: number}>} arr1 - 第一个数组
+     * @param {Array<{x: number, y: number}>} arr2 - 第二个数组
+     * @param {number} tolerance - 容差
+     * @returns {Array<Array<{x: number, y: number}>>} 网格数据
+     */
+    generateGridData(arr1, arr2, tolerance = 10) {
+        const virticalGroups = [];
+        
+        let idx1 = 1;
+        let idx2 = 1;
+
+        while (idx1 < arr1.length-1 && idx2 < arr2.length-1) {
+            // 1. 距离足够近的点，归为一组
+            if (Math.abs(arr1[idx1].x - arr2[idx2].x) < tolerance) {
+                virticalGroups.push([arr1[idx1], arr2[idx2]]);
+                idx1++;
+                idx2++;
+                continue;
+            }
+
+            // 2. 如果距离不够近，则补充点位置
+            if (arr1[idx1].x < arr2[idx2].x) {
+                const xNew = arr1[idx1].x;
+                const [xNext, yNext] = [arr2[idx2].x, arr2[idx2].y];
+                const [xPrev, yPrev] = [arr2[idx2-1].x, arr2[idx2-1].y];
+                const yNew = yPrev + (yNext - yPrev) * (xNew - xPrev) / (xNext - xPrev);
+                virticalGroups.push([arr1[idx1], {x: xNew, y: yNew}]);
+                idx1++;
+            } else {
+                const xNew = arr2[idx2].x;
+                const [xNext, yNext] = [arr1[idx1].x, arr1[idx1].y];
+                const [xPrev, yPrev] = [arr1[idx1-1].x, arr1[idx1-1].y];
+                const yNew = yPrev + (yNext - yPrev) * (xNew - xPrev) / (xNext - xPrev);
+                virticalGroups.push([{x: xNew, y: yNew}, arr2[idx2]]);
+                idx2++;
+                         }
+         }
+         
+         console.log(`🔗 生成网格数据完成，共 ${virticalGroups.length} 组连接点`);
+         return virticalGroups;
+     }
+    
+    /**
+     * 绘制网格连线
+     * @param {Array<Array<{x: number, y: number}>>} gridData - 网格数据，每个元素包含两个点
+     * @param {Object} options - 绘制配置
+     * @param {string} options.gridColor - 网格线颜色（默认绿色）
+     * @param {number} options.gridLineWidth - 网格线宽度（默认1）
+     * @param {boolean} options.drawGridPoints - 是否绘制网格点（默认false）
+     * @param {number} options.gridPointRadius - 网格点半径（默认2）
+     * @param {string} options.gridPointColor - 网格点颜色（默认与网格线相同）
+     */
+    drawGrid(gridData, options = {}) {
+        if (!gridData || gridData.length === 0) {
+            console.warn('没有网格数据可以绘制');
+            return;
+        }
+        
+        const defaultOptions = {
+            gridColor: '#00ff00',          // 绿色
+            gridLineWidth: 1,
+            drawGridPoints: false,
+            gridPointRadius: 2,
+            gridPointColor: null           // 默认与网格线颜色相同
+        };
+        
+        const finalOptions = { ...defaultOptions, ...options };
+        finalOptions.gridPointColor = finalOptions.gridPointColor || finalOptions.gridColor;
+        
+        console.log(`🎯 开始绘制网格，共 ${gridData.length} 条连线`);
+        
+        // 保存当前绘图状态
+        const originalStrokeStyle = this.ctx.strokeStyle;
+        const originalFillStyle = this.ctx.fillStyle;
+        const originalLineWidth = this.ctx.lineWidth;
+        const originalLineCap = this.ctx.lineCap;
+        
+        // 设置网格线样式
+        this.ctx.strokeStyle = finalOptions.gridColor;
+        this.ctx.lineWidth = finalOptions.gridLineWidth;
+        this.ctx.lineCap = 'round';
+        
+        // 绘制连线
+        let drawnLines = 0;
+        for (const pointPair of gridData) {
+            if (pointPair && pointPair.length === 2) {
+                const [point1, point2] = pointPair;
+                
+                if (point1 && point2 && 
+                    typeof point1.x === 'number' && typeof point1.y === 'number' &&
+                    typeof point2.x === 'number' && typeof point2.y === 'number') {
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(point1.x, point1.y);
+                    this.ctx.lineTo(point2.x, point2.y);
+                    this.ctx.stroke();
+                    drawnLines++;
+                }
+            }
+        }
+        
+        // 绘制网格点（如果启用）
+        if (finalOptions.drawGridPoints) {
+            this.ctx.fillStyle = finalOptions.gridPointColor;
+            this.ctx.strokeStyle = finalOptions.gridPointColor;
+            
+            let drawnPoints = 0;
+            for (const pointPair of gridData) {
+                if (pointPair && pointPair.length === 2) {
+                    const [point1, point2] = pointPair;
+                    
+                    // 绘制第一个点
+                    if (point1 && typeof point1.x === 'number' && typeof point1.y === 'number') {
+                        this.ctx.beginPath();
+                        this.ctx.arc(point1.x, point1.y, finalOptions.gridPointRadius, 0, 2 * Math.PI);
+                        this.ctx.fill();
+                        drawnPoints++;
+                    }
+                    
+                    // 绘制第二个点
+                    if (point2 && typeof point2.x === 'number' && typeof point2.y === 'number') {
+                        this.ctx.beginPath();
+                        this.ctx.arc(point2.x, point2.y, finalOptions.gridPointRadius, 0, 2 * Math.PI);
+                        this.ctx.fill();
+                        drawnPoints++;
+                    }
+                }
+            }
+            console.log(`📍 绘制了 ${drawnPoints} 个网格点`);
+        }
+        
+        // 恢复原始绘图状态
+        this.ctx.strokeStyle = originalStrokeStyle;
+        this.ctx.fillStyle = originalFillStyle;
+        this.ctx.lineWidth = originalLineWidth;
+        this.ctx.lineCap = originalLineCap;
+        
+        console.log(`✅ 网格绘制完成！绘制了 ${drawnLines} 条连线，颜色: ${finalOptions.gridColor}`);
+    }
+}
