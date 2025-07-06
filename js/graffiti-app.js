@@ -165,7 +165,7 @@ class GraffitiApp {
                     
                     // 切分成两个数组，切分点规划到第一个数组中
                     firstArray = processedPoints.slice(0, maxXIndex + 1);
-                    secondArray = processedPoints.slice(maxXIndex + 1).reverse();
+                    secondArray = [firstArray[0], ...processedPoints.slice(maxXIndex).reverse()];
                     
                     console.log(`✂️ 按最大x值切分数组: 第一个数组${firstArray.length}个点，第二个数组${secondArray.length}个点`);
                     
