@@ -331,6 +331,7 @@ class ImageProcessor {
         );
     }
     
+    
     /**
      * 在画布上绘制点集（支持连线）
      * @param {Array} points - 点数组，支持两种格式：
@@ -430,5 +431,157 @@ class ImageProcessor {
         this.ctx.strokeStyle = originalStrokeStyle;
         this.ctx.fillStyle = originalFillStyle;
         this.ctx.lineWidth = originalLineWidth;
+    }
+    
+    /**
+     * 从最右侧的点切分成两条线
+     * @param {Array<{x: number, y: number}>} processedPoints - 预处理后的点数组
+     * @returns {Object} {firstArray: Array, secondArray: Array, maxXIndex: number, stats: Object}
+     */
+    splitPointsAtRightmost(processedPoints) {
+        if (!processedPoints || processedPoints.length === 0) {
+            return {
+                firstArray: [],
+                secondArray: [],
+                maxXIndex: -1,
+                stats: { originalPointsCount: 0, firstArrayCount: 0, secondArrayCount: 0 }
+            };
+        }
+        
+        console.log(`✂️ 开始从最右侧点切分，输入点数: ${processedPoints.length}`);
+        const startTime = performance.now();
+        
+        // 找到x值最大的点
+        let maxXIndex = 0;
+        let maxX = processedPoints[0].x;
+        
+        for (let i = 1; i < processedPoints.length; i++) {
+            if (processedPoints[i].x > maxX) {
+                maxX = processedPoints[i].x;
+                maxXIndex = i;
+            }
+        }
+        
+        // 切分成两个数组，切分点归到第一个数组中
+        const firstArray = processedPoints.slice(0, maxXIndex + 1);
+        const secondArray = [firstArray[0], ...processedPoints.slice(maxXIndex).reverse()];
+        
+        const processingTime = performance.now() - startTime;
+        
+        const result = {
+            firstArray: firstArray,
+            secondArray: secondArray,
+            maxXIndex: maxXIndex,
+            stats: {
+                originalPointsCount: processedPoints.length,
+                firstArrayCount: firstArray.length,
+                secondArrayCount: secondArray.length,
+                processingTime: processingTime,
+                maxX: maxX
+            }
+        };
+        
+        console.log(`✅ 切分完成！`);
+        console.log(`📊 原始点数: ${result.stats.originalPointsCount}`);
+        console.log(`📊 第一个数组: ${result.stats.firstArrayCount} 个点`);
+        console.log(`📊 第二个数组: ${result.stats.secondArrayCount} 个点`);
+        console.log(`📊 最大x值: ${maxX}, 索引: ${maxXIndex}`);
+        console.log(`📊 处理耗时: ${processingTime.toFixed(2)}ms`);
+        
+        return result;
+    }
+    
+    /**
+     * 绘制切分后的两条线
+     * @param {Object} splitResult - splitPointsAtRightmost 的返回值
+     * @param {Object} options - 绘制选项
+     * @param {string} options.firstLineColor - 第一条线的颜色（默认蓝色）
+     * @param {string} options.secondLineColor - 第二条线的颜色（默认红色）
+     * @param {number} options.lineWidth - 线条宽度（默认1）
+     * @param {number} options.pointRadius - 点的半径（默认2）
+     * @param {boolean} options.drawPoints - 是否绘制点（默认true）
+     * @param {boolean} options.drawLines - 是否绘制连线（默认true）
+     */
+    drawSplitLines(splitResult, options = {}) {
+        const defaultOptions = {
+            firstLineColor: '#007bff',   // 蓝色
+            secondLineColor: '#ff0000',  // 红色
+            lineWidth: 1,
+            pointRadius: 2,
+            drawPoints: true,
+            drawLines: true
+        };
+        
+        const finalOptions = { ...defaultOptions, ...options };
+        
+        if (splitResult.firstArray.length === 0 && splitResult.secondArray.length === 0) {
+            console.warn('没有可绘制的线段');
+            return;
+        }
+        
+        console.log(`🎨 开始绘制切分后的线段...`);
+        
+        // 绘制第一条线
+        if (splitResult.firstArray.length > 0) {
+            this.drawContour(splitResult.firstArray, {
+                color: finalOptions.firstLineColor,
+                lineColor: finalOptions.firstLineColor,
+                radius: finalOptions.pointRadius,
+                drawLines: finalOptions.drawLines,
+                lineWidth: finalOptions.lineWidth,
+                drawPoints: finalOptions.drawPoints
+            });
+            console.log(`📏 第一条线已绘制: ${splitResult.firstArray.length} 个点，颜色: ${finalOptions.firstLineColor}`);
+        }
+        
+        // 绘制第二条线
+        if (splitResult.secondArray.length > 0) {
+            this.drawContour(splitResult.secondArray, {
+                color: finalOptions.secondLineColor,
+                lineColor: finalOptions.secondLineColor,
+                radius: finalOptions.pointRadius,
+                drawLines: finalOptions.drawLines,
+                lineWidth: finalOptions.lineWidth,
+                drawPoints: finalOptions.drawPoints
+            });
+            console.log(`📏 第二条线已绘制: ${splitResult.secondArray.length} 个点，颜色: ${finalOptions.secondLineColor}`);
+        }
+        
+        console.log(`✅ 切分线段绘制完成！`);
+    }
+    
+    /**
+     * 完整的处理流程：预处理 -> 切分 -> 绘制
+     * @param {Array<{x: number, y: number}>} rawPoints - 原始边缘点
+     * @param {Object} processConfig - 预处理配置（可选）
+     * @param {Object} drawOptions - 绘制选项（可选）
+     * @returns {Object} 切分结果
+     */
+    processAndSplitPoints(rawPoints, processConfig = null, drawOptions = null) {
+        if (!rawPoints || rawPoints.length === 0) {
+            console.warn('没有输入点进行处理');
+            return null;
+        }
+        
+        console.log(`🔧 开始完整处理流程，原始点数: ${rawPoints.length}`);
+        
+        // 第一步：预处理
+        const defaultProcessConfig = {
+            enableSort: true,
+            enableCompress: true,
+            tolerance: 2.0
+        };
+        const config = { ...defaultProcessConfig, ...processConfig };
+        const processedPoints = this.preprocessEdgePoints(rawPoints, config);
+        
+        // 第二步：切分
+        const splitResult = this.splitPointsAtRightmost(processedPoints);
+        
+        // 第三步：绘制
+        if (drawOptions !== false) { // 如果 drawOptions 不是 false，则绘制
+            this.drawSplitLines(splitResult, drawOptions);
+        }
+        
+        return splitResult;
     }
 } 

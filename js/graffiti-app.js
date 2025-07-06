@@ -136,8 +136,7 @@ class GraffitiApp {
             let processTime = 0;
             let drawTime = 0;
             let processedPoints = edgePoints;
-            let firstArray = [];
-            let secondArray = [];
+            let splitResult = null;
             
             // 预处理边缘点：排序 + 压缩
             if (this.edgeProcessConfig.enableSort || this.edgeProcessConfig.enableCompress) {
@@ -150,28 +149,9 @@ class GraffitiApp {
                 
                 console.log(`🔧 边缘点预处理耗时: ${processTime.toFixed(2)}ms`);
                 
-                // 找到x值最大的点并切分数组
+                // 切分成两条线
                 if (processedPoints.length > 0) {
-                    let maxXIndex = 0;
-                    let maxX = processedPoints[0].x;
-                    
-                    // 找到x值最大的点
-                    for (let i = 1; i < processedPoints.length; i++) {
-                        if (processedPoints[i].x > maxX) {
-                            maxX = processedPoints[i].x;
-                            maxXIndex = i;
-                        }
-                    }
-                    
-                    // 切分成两个数组，切分点规划到第一个数组中
-                    firstArray = processedPoints.slice(0, maxXIndex + 1);
-                    secondArray = [firstArray[0], ...processedPoints.slice(maxXIndex).reverse()];
-                    
-                    console.log(`✂️ 按最大x值切分数组: 第一个数组${firstArray.length}个点，第二个数组${secondArray.length}个点`);
-                    
-                    // 这里可以根据需要处理切分后的数组
-                    // 例如：processedPoints = firstArray; // 只保留第一个数组
-                    // 或者：processedPoints = [...firstArray, ...secondArray]; // 重新组合
+                    splitResult = this.imageProcessor.splitPointsAtRightmost(processedPoints);
                 }
             }
             
@@ -179,19 +159,19 @@ class GraffitiApp {
             if (this.edgeDrawConfig.enabled) {
                 const drawStartTime = performance.now();
                 
-                // 绘制第一个数组（使用默认配置）
-                if (firstArray && firstArray.length > 0) {
-                    this.imageProcessor.drawContour(firstArray, this.edgeDrawConfig);
-                }
-                
-                // 绘制第二个数组（使用不同颜色）
-                if (secondArray && secondArray.length > 0) {
-                    const secondArrayConfig = {
-                        ...this.edgeDrawConfig,
-                        color: '#ff0000',  // 红色
-                        lineColor: '#ff0000'  // 红色连线
-                    };
-                    this.imageProcessor.drawContour(secondArray, secondArrayConfig);
+                if (splitResult && (splitResult.firstArray.length > 0 || splitResult.secondArray.length > 0)) {
+                    // 使用 image-processor 的方法绘制切分后的两条线
+                    this.imageProcessor.drawSplitLines(splitResult, {
+                        firstLineColor: this.edgeDrawConfig.color,
+                        secondLineColor: '#ff0000',  // 红色
+                        lineWidth: this.edgeDrawConfig.lineWidth,
+                        pointRadius: this.edgeDrawConfig.radius,
+                        drawPoints: this.edgeDrawConfig.drawPoints,
+                        drawLines: this.edgeDrawConfig.drawLines
+                    });
+                } else {
+                    // 如果没有切分结果，使用原始方式绘制
+                    this.imageProcessor.drawContour(processedPoints, this.edgeDrawConfig);
                 }
                 
                 drawTime = performance.now() - drawStartTime;
@@ -207,15 +187,26 @@ class GraffitiApp {
             stats.drawTime = drawTime;
             stats.totalTimeWithProcessAndDraw = stats.totalTime + processTime + drawTime;
             
+            // 添加切分统计信息
+            if (splitResult) {
+                stats.splitResult = {
+                    firstArrayCount: splitResult.firstArray.length,
+                    secondArrayCount: splitResult.secondArray.length,
+                    maxXIndex: splitResult.maxXIndex
+                };
+            }
+            
             console.log(`📊 包含预处理和绘制的总耗时: ${stats.totalTimeWithProcessAndDraw.toFixed(2)}ms`);
             
             // 构建通知消息
             const processInfo = (this.edgeProcessConfig.enableSort || this.edgeProcessConfig.enableCompress) ? 
                 `，预处理后 ${processedPoints.length} 个点 (压缩${stats.compressionRate}%)` : '';
+            const splitInfo = stats.splitResult ? 
+                `，切分为两条线 (${stats.splitResult.firstArrayCount}+${stats.splitResult.secondArrayCount}个点)` : '';
             const drawInfo = this.edgeDrawConfig.enabled ? 
                 `，绘制耗时 ${drawTime.toFixed(0)}ms` : 
                 '（未绘制）';
-            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点${processInfo}，算法耗时 ${stats.totalTime.toFixed(0)}ms${drawInfo}`;
+            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点${processInfo}${splitInfo}，算法耗时 ${stats.totalTime.toFixed(0)}ms${drawInfo}`;
             this.showNotification(message, 'success');
         };
         
@@ -287,5 +278,45 @@ class GraffitiApp {
 
 // 页面加载完成后初始化应用
 document.addEventListener('DOMContentLoaded', () => {
-    new GraffitiApp();
+    window.graffitiApp = new GraffitiApp();
+    
+    // 切分功能使用示例（在浏览器控制台中运行）
+    // 
+    // 1. 基本切分操作（通过 imageProcessor）：
+    // const points = [{x: 100, y: 100}, {x: 200, y: 150}, {x: 300, y: 100}, {x: 250, y: 200}];
+    // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
+    // console.log('切分结果:', splitResult);
+    //
+    // 2. 切分并绘制：
+    // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
+    // graffitiApp.imageProcessor.drawSplitLines(splitResult);
+    //
+    // 3. 自定义绘制样式：
+    // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
+    // graffitiApp.imageProcessor.drawSplitLines(splitResult, {
+    //     firstLineColor: '#ff6b35',     // 橙色第一条线
+    //     secondLineColor: '#6f42c1',    // 紫色第二条线
+    //     lineWidth: 3,
+    //     pointRadius: 4,
+    //     drawPoints: true,
+    //     drawLines: true
+    // });
+    //
+    // 4. 完整流程（预处理 -> 切分 -> 绘制）：
+    // const rawPoints = [{x: 50, y: 100}, {x: 150, y: 50}, {x: 250, y: 100}, {x: 200, y: 150}];
+    // const splitResult = graffitiApp.imageProcessor.processAndSplitPoints(rawPoints);
+    //
+    // 5. 只处理不绘制：
+    // const splitResult = graffitiApp.imageProcessor.processAndSplitPoints(rawPoints, null, false);
+    //
+    // 6. 结合边缘检测使用：
+    // // 边缘检测现在会自动执行切分和绘制
+    // graffitiApp.handleEdgeDetection(); 
+    //
+    // 7. 分析切分结果：
+    // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
+    // console.log('第一条线点数:', splitResult.stats.firstArrayCount);
+    // console.log('第二条线点数:', splitResult.stats.secondArrayCount);
+    // console.log('最大X值索引:', splitResult.stats.maxXIndex);
+    // console.log('最大X值:', splitResult.stats.maxX);
 }); 
