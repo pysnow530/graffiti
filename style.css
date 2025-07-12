@@ -147,6 +147,87 @@ button {
     transform: translateY(-2px);
 }
 
+#generate3D {
+    background: #6f42c1;
+    color: white;
+}
+
+#generate3D:hover {
+    background: #5a2d91;
+    transform: translateY(-2px);
+}
+
+.model-container {
+    margin-top: 20px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    text-align: center;
+}
+
+.model-container h3 {
+    color: #495057;
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+}
+
+.model-info {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 5px;
+    border-left: 4px solid #17a2b8;
+}
+
+#threejs-container {
+    width: 100%;
+    height: 500px;
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.model-controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+
+#close3D {
+    background: #dc3545;
+    color: white;
+}
+
+#close3D:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+}
+
+#export3D {
+    background: #28a745;
+    color: white;
+}
+
+#export3D:hover {
+    background: #218838;
+    transform: translateY(-2px);
+}
+
+#test3D {
+    background: #17a2b8;
+    color: white;
+}
+
+#test3D:hover {
+    background: #138496;
+    transform: translateY(-2px);
+}
+
 .canvas-container {
     display: flex;
     justify-content: center;
@@ -335,5 +416,38 @@ button {
         width: 50px;
         height: 35px;
         margin: 0 auto;
+    }
+    
+    /* 3D模型容器响应式样式 */
+    .model-container {
+        margin-top: 15px;
+        padding: 15px;
+    }
+    
+    .model-container h3 {
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+    }
+    
+    .model-info {
+        font-size: 0.8rem;
+        padding: 8px;
+        margin-bottom: 10px;
+    }
+    
+    #threejs-container {
+        height: 300px;
+        margin-bottom: 10px;
+    }
+    
+    .model-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .model-controls button {
+        width: 100%;
+        padding: 12px;
+        font-size: 14px;
     }
 } 

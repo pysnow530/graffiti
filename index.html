@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canvas 涂鸦板</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
     <header>
@@ -72,6 +73,7 @@
                 <input type="file" id="imageUpload" accept="image/*" style="display: none;">
                 <button id="edgeDetection">图像描边</button>
                 <button id="testThickness">测试厚度</button>
+                <button id="generate3D">生成3D模型</button>
                 <button id="clearCanvas">清空画布</button>
                 <button id="saveCanvas">保存图片</button>
             </div>
@@ -79,6 +81,19 @@
         
         <div class="canvas-container">
             <canvas id="drawingCanvas"></canvas>
+        </div>
+        
+        <div class="model-container" id="modelContainer" style="display: none;">
+            <h3>3D 模型视图</h3>
+            <p class="model-info">
+                🎮 <strong>控制说明:</strong> 鼠标拖拽旋转视角，滚轮缩放，停止拖拽后自动旋转
+            </p>
+            <div id="threejs-container"></div>
+            <div class="model-controls">
+                <button id="close3D">关闭3D视图</button>
+                <button id="test3D">测试3D模型</button>
+                <button id="export3D">导出3D模型</button>
+            </div>
         </div>
     </main>
     

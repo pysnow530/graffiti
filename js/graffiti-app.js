@@ -11,6 +11,11 @@ class GraffitiApp {
         this.drawingEngine = new DrawingEngine(this.canvas);
         this.imageProcessor = new ImageProcessor(this.drawingEngine);
         this.edgeDetection = new EdgeDetectionAlgorithm(this.imageProcessor);
+        this.model3D = new Model3DProcessor();
+        
+        // 存储最新的网格数据和厚度数据
+        this.latestGridData = null;
+        this.latestThicknessData = null;
         
         // 边缘绘制配置
         this.edgeDrawConfig = {
@@ -77,6 +82,10 @@ class GraffitiApp {
         const imageUpload = document.getElementById('imageUpload');
         const edgeButton = document.getElementById('edgeDetection');
         const testThicknessButton = document.getElementById('testThickness');
+        const generate3DButton = document.getElementById('generate3D');
+        const close3DButton = document.getElementById('close3D');
+        const test3DButton = document.getElementById('test3D');
+        const export3DButton = document.getElementById('export3D');
         const clearButton = document.getElementById('clearCanvas');
         const saveButton = document.getElementById('saveCanvas');
         
@@ -205,6 +214,27 @@ class GraffitiApp {
             this.testThicknessContour();
         });
         
+        // 生成3D模型事件
+        generate3DButton.addEventListener('click', () => {
+            this.handle3DGeneration();
+        });
+        
+        // 关闭3D视图事件
+        close3DButton.addEventListener('click', () => {
+            this.close3DView();
+        });
+        
+        // 测试3D模型事件
+        test3DButton.addEventListener('click', () => {
+            this.test3DGeneration();
+        });
+        
+        // 导出3D模型事件
+        export3DButton.addEventListener('click', () => {
+            this.model3D.exportModel();
+            this.showNotification('3D模型截图已保存', 'success');
+        });
+        
         // 清空画布事件
         clearButton.addEventListener('click', () => {
             this.drawingEngine.clearCanvas();
@@ -276,6 +306,9 @@ class GraffitiApp {
                     gridData = this.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray, this.edgeDrawConfig.tolerance);
                     console.log('网格数据:', gridData);
                     
+                    // 保存网格数据供3D生成使用
+                    this.latestGridData = gridData;
+                    
                     // 生成厚度轮廓数据
                     if (this.thicknessConfig.enabled) {
                         thickContour = this.imageProcessor.calculateContourThickness(processedPoints, {
@@ -284,6 +317,9 @@ class GraffitiApp {
                             minThickness: this.thicknessConfig.minThickness
                         });
                         console.log('厚度轮廓数据:', thickContour);
+                        
+                        // 保存厚度数据供3D生成使用
+                        this.latestThicknessData = thickContour;
                     }
                 }
             }
@@ -538,6 +574,93 @@ class GraffitiApp {
         this.showNotification('封闭图形厚度测试完成！展示4种不同的厚度函数效果', 'success');
     }
     
+    /**
+     * 处理3D模型生成
+     */
+    handle3DGeneration() {
+        if (!this.latestGridData || this.latestGridData.length === 0) {
+            this.showNotification('没有网格数据可以生成3D模型，请先进行图像描边', 'warning');
+            return;
+        }
+        
+        this.showNotification('正在生成3D模型...', 'info');
+        
+        // 显示3D模型容器
+        const modelContainer = document.getElementById('modelContainer');
+        modelContainer.style.display = 'block';
+        
+        // 初始化3D场景
+        const success = this.model3D.initScene('threejs-container');
+        
+        if (success) {
+            // 生成3D模型
+            const modelGenerated = this.model3D.generateModel(this.latestGridData, this.latestThicknessData);
+            
+            if (modelGenerated) {
+                this.showNotification('3D模型生成成功！使用鼠标拖拽查看，滚轮缩放', 'success');
+                
+                // 滚动到3D模型视图
+                modelContainer.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                this.showNotification('3D模型生成失败', 'error');
+                this.close3DView();
+            }
+        } else {
+            this.showNotification('3D场景初始化失败', 'error');
+            this.close3DView();
+        }
+    }
+    
+    /**
+     * 关闭3D视图
+     */
+    close3DView() {
+        const modelContainer = document.getElementById('modelContainer');
+        modelContainer.style.display = 'none';
+        
+        // 销毁3D场景
+        this.model3D.destroy();
+        
+        this.showNotification('3D视图已关闭', 'info');
+    }
+    
+    /**
+     * 测试3D模型生成
+     */
+    test3DGeneration() {
+        console.log('🧪 开始测试3D模型生成功能');
+        
+        // 创建测试网格数据
+        const testGridData = [
+            [{x: 100, y: 100}, {x: 100, y: 200}],
+            [{x: 150, y: 120}, {x: 150, y: 180}],
+            [{x: 200, y: 140}, {x: 200, y: 160}],
+            [{x: 250, y: 160}, {x: 250, y: 140}],
+            [{x: 300, y: 180}, {x: 300, y: 120}],
+            [{x: 350, y: 200}, {x: 350, y: 100}]
+        ];
+        
+        // 创建测试厚度数据
+        const testThicknessData = {
+            thicknessFunction: (t, maxThickness) => {
+                // 使用鱼形厚度函数
+                return maxThickness * Math.sin(Math.PI * t);
+            },
+            maxThickness: 30,
+            minThickness: 2,
+            functionName: 'fish'
+        };
+        
+        // 保存测试数据
+        this.latestGridData = testGridData;
+        this.latestThicknessData = testThicknessData;
+        
+        // 生成3D模型
+        this.handle3DGeneration();
+        
+        console.log('✅ 3D模型测试完成');
+    }
+
     /**
      * 显示通知消息
      */
