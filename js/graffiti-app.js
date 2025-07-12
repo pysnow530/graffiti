@@ -269,19 +269,14 @@ class GraffitiApp {
      * 负责协调边缘检测算法执行和结果绘制
      */
     handleEdgeDetection() {
-        // 显示开始通知
-        this.showNotification('开始边缘检测...', 'info');
-        
-        // 进度回调
-        const onProgress = (current, total, angle) => {
-            const progress = Math.round((current / total) * 100);
-            if (current % 5 === 0) { // 每5个角度更新一次进度
-                this.showNotification(`边缘检测进度: ${progress}% (角度: ${angle}°)`, 'info');
-            }
-        };
-        
-        // 完成回调
-        const onComplete = (edgePoints, stats) => {
+        try {
+            // 显示开始通知
+            this.showNotification('开始边缘检测...', 'info');
+            
+            // 执行边缘检测（直接返回结果）
+            const edgePoints = this.edgeDetection.detectEdges();
+            
+            // 处理边缘检测结果
             let processTime = 0;
             let drawTime = 0;
             let processedPoints = edgePoints;
@@ -372,13 +367,15 @@ class GraffitiApp {
                 console.log(`🎨 绘制边缘轮廓耗时: ${drawTime.toFixed(2)}ms`);
             }
             
-            // 更新统计信息
-            stats.originalPointsCount = edgePoints.length;
-            stats.processedPointsCount = processedPoints.length;
-            stats.compressionRate = ((edgePoints.length - processedPoints.length) / edgePoints.length * 100).toFixed(1);
-            stats.processTime = processTime;
-            stats.drawTime = drawTime;
-            stats.totalTimeWithProcessAndDraw = stats.totalTime + processTime + drawTime;
+            // 生成统计信息
+            const stats = {
+                originalPointsCount: edgePoints.length,
+                processedPointsCount: processedPoints.length,
+                compressionRate: ((edgePoints.length - processedPoints.length) / edgePoints.length * 100).toFixed(1),
+                processTime: processTime,
+                drawTime: drawTime,
+                edgePointsCount: edgePoints.length
+            };
             
             // 添加切分统计信息
             if (splitResult) {
@@ -410,7 +407,7 @@ class GraffitiApp {
                 };
             }
             
-            console.log(`📊 包含预处理和绘制的总耗时: ${stats.totalTimeWithProcessAndDraw.toFixed(2)}ms`);
+            console.log(`📊 包含预处理和绘制的总耗时: ${(processTime + drawTime).toFixed(2)}ms`);
             
             // 构建通知消息
             const processInfo = (this.edgeProcessConfig.enableSort || this.edgeProcessConfig.enableCompress) ? 
@@ -424,17 +421,13 @@ class GraffitiApp {
             const drawInfo = this.edgeDrawConfig.enabled ? 
                 `，绘制耗时 ${drawTime.toFixed(0)}ms` : 
                 '（未绘制）';
-            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点${processInfo}${splitInfo}${gridInfo}${thicknessInfo}，算法耗时 ${stats.totalTime.toFixed(0)}ms${drawInfo}`;
+            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点${processInfo}${splitInfo}${gridInfo}${thicknessInfo}${drawInfo}`;
             this.showNotification(message, 'success');
-        };
-        
-        // 错误回调
-        const onError = (error) => {
+            
+        } catch (error) {
+            console.error('边缘检测错误:', error);
             this.showNotification('边缘检测失败，请重试', 'error');
-        };
-        
-        // 执行边缘检测
-        this.edgeDetection.detectEdges(onProgress, onComplete, onError);
+        }
     }
     
     /**

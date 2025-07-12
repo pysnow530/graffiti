@@ -22,100 +22,81 @@ class EdgeDetectionAlgorithm {
     
     /**
      * 执行边缘检测算法
-     * @param {Function} onProgress - 进度回调函数 (current, total, angle)
-     * @param {Function} onComplete - 完成回调函数 (edgePoints, stats)
-     *   - edgePoints: Array<{x: number, y: number}> 边缘点对象数组
-     *   - stats: 性能统计对象
-     * @param {Function} onError - 错误回调函数 (error)
+     * @returns {Array<{x: number, y: number}>} 边缘点数组
      */
-    detectEdges(onProgress, onComplete, onError) {
-        try {
-            // === 性能计时开始 ===
-            const totalStartTime = performance.now();
-            console.log('🔍 开始边缘检测算法...');
+    detectEdges() {
+        // === 性能计时开始 ===
+        const totalStartTime = performance.now();
+        console.log('🔍 开始边缘检测算法...');
+        
+        // 获取画布像素数据
+        const imageDataStartTime = performance.now();
+        const imageData = this.imageProcessor.getImageData();
+        const width = imageData.width;
+        const height = imageData.height;
+        const imageDataTime = performance.now() - imageDataStartTime;
+        console.log(`📊 获取图像数据耗时: ${imageDataTime.toFixed(2)}ms`);
+        
+        // 存储边缘点
+        const edgePoints = [];
+        
+        // 创建像素检测函数
+        const isPixelNotEmpty = (x, y) => this.imageProcessor.isPixelNotEmpty(imageData, x, y);
+        
+        // 多角度全覆盖扫描
+        const angleStep = this.gridSize;
+        const totalAngles = Math.ceil(180 / angleStep);
+        console.log(`🎯 开始多角度扫描，角度步长: ${angleStep}°, 总角度数: ${totalAngles}`);
+        
+        const scanStartTime = performance.now();
+        let angleCount = 0;
+        const angleTimings = [];
+        
+        // 按角度扫描（每gridSize度扫描一次，0-180度即可覆盖所有方向）
+        for (let angle = 0; angle < 180; angle += angleStep) {
+            const angleStartTime = performance.now();
+            const initialEdgeCount = edgePoints.length;
             
-            // 获取画布像素数据
-            const imageDataStartTime = performance.now();
-            const imageData = this.imageProcessor.getImageData();
-            const width = imageData.width;
-            const height = imageData.height;
-            const imageDataTime = performance.now() - imageDataStartTime;
-            console.log(`📊 获取图像数据耗时: ${imageDataTime.toFixed(2)}ms`);
+            this.scanInDirection(angle, edgePoints, width, height, isPixelNotEmpty);
             
-            // 存储边缘点
-            const edgePoints = [];
+            const angleTime = performance.now() - angleStartTime;
+            const newEdgeCount = edgePoints.length - initialEdgeCount;
+            angleTimings.push({angle, time: angleTime, newEdges: newEdgeCount});
+            angleCount++;
             
-            // 创建像素检测函数
-            const isPixelNotEmpty = (x, y) => this.imageProcessor.isPixelNotEmpty(imageData, x, y);
-            
-            // 多角度全覆盖扫描
-            const angleStep = this.gridSize;
-            const totalAngles = Math.ceil(180 / angleStep);
-            console.log(`🎯 开始多角度扫描，角度步长: ${angleStep}°, 总角度数: ${totalAngles}`);
-            
-            const scanStartTime = performance.now();
-            let angleCount = 0;
-            const angleTimings = [];
-            
-            // 按角度扫描（每gridSize度扫描一次，0-180度即可覆盖所有方向）
-            for (let angle = 0; angle < 180; angle += angleStep) {
-                const angleStartTime = performance.now();
-                const initialEdgeCount = edgePoints.length;
-                
-                this.scanInDirection(angle, edgePoints, width, height, isPixelNotEmpty);
-                
-                const angleTime = performance.now() - angleStartTime;
-                const newEdgeCount = edgePoints.length - initialEdgeCount;
-                angleTimings.push({angle, time: angleTime, newEdges: newEdgeCount});
-                angleCount++;
-                
-                // 进度回调
-                if (onProgress) {
-                    onProgress(angleCount, totalAngles, angle);
-                }
-                
-                // 每10个角度打印一次进度
-                if (angleCount % 10 === 0 || angle === 0) {
-                    console.log(`  📐 角度 ${angle}° 完成，耗时: ${angleTime.toFixed(2)}ms，新增边缘点: ${newEdgeCount}`);
-                }
-            }
-            
-            const totalScanTime = performance.now() - scanStartTime;
-            console.log(`⚡ 扫描阶段总耗时: ${totalScanTime.toFixed(2)}ms`);
-            console.log(`📈 平均每角度耗时: ${(totalScanTime / angleCount).toFixed(2)}ms`);
-            
-            // 找出耗时最长和最短的角度
-            const sortedTimings = [...angleTimings].sort((a, b) => b.time - a.time);
-            console.log(`🐌 最慢角度: ${sortedTimings[0].angle}° (${sortedTimings[0].time.toFixed(2)}ms)`);
-            console.log(`🚀 最快角度: ${sortedTimings[sortedTimings.length-1].angle}° (${sortedTimings[sortedTimings.length-1].time.toFixed(2)}ms)`);
-            
-            // 边缘检测算法完成，不在此处绘制
-            // 绘制操作将由 GraffitiApp 统一协调处理
-            
-            // === 性能计时结束 ===
-            const totalTime = performance.now() - totalStartTime;
-            const performanceStats = {
-                totalTime,
-                edgePointsCount: edgePoints.length,
-                processingEfficiency: (edgePoints.length / totalTime * 1000).toFixed(0),
-                pixelProcessingSpeed: ((width * height) / totalTime * 1000).toFixed(0),
-                angleTimings,
-                scanTime: totalScanTime
-            };
-            
-            this.logPerformanceStats(performanceStats);
-            
-            // 完成回调
-            if (onComplete) {
-                onComplete(edgePoints, performanceStats);
-            }
-            
-        } catch (error) {
-            console.error('边缘检测错误:', error);
-            if (onError) {
-                onError(error);
+            // 每10个角度打印一次进度
+            if (angleCount % 10 === 0 || angle === 0) {
+                console.log(`  📐 角度 ${angle}° 完成，耗时: ${angleTime.toFixed(2)}ms，新增边缘点: ${newEdgeCount}`);
             }
         }
+        
+        const totalScanTime = performance.now() - scanStartTime;
+        console.log(`⚡ 扫描阶段总耗时: ${totalScanTime.toFixed(2)}ms`);
+        console.log(`📈 平均每角度耗时: ${(totalScanTime / angleCount).toFixed(2)}ms`);
+        
+        // 找出耗时最长和最短的角度
+        const sortedTimings = [...angleTimings].sort((a, b) => b.time - a.time);
+        console.log(`🐌 最慢角度: ${sortedTimings[0].angle}° (${sortedTimings[0].time.toFixed(2)}ms)`);
+        console.log(`🚀 最快角度: ${sortedTimings[sortedTimings.length-1].angle}° (${sortedTimings[sortedTimings.length-1].time.toFixed(2)}ms)`);
+        
+        // 边缘检测算法完成，不在此处绘制
+        // 绘制操作将由 GraffitiApp 统一协调处理
+        
+        // === 性能计时结束 ===
+        const totalTime = performance.now() - totalStartTime;
+        const performanceStats = {
+            totalTime,
+            edgePointsCount: edgePoints.length,
+            processingEfficiency: (edgePoints.length / totalTime * 1000).toFixed(0),
+            pixelProcessingSpeed: ((width * height) / totalTime * 1000).toFixed(0),
+            angleTimings,
+            scanTime: totalScanTime
+        };
+        
+        this.logPerformanceStats(performanceStats);
+        
+        // 直接返回边缘点数组
+        return edgePoints;
     }
     
     /**
