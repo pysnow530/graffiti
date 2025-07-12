@@ -31,6 +31,20 @@ class GraffitiApp {
             subdivisionLineWidth: 1 // 等分线宽度
         };
         
+        // 厚度轮廓配置
+        this.thicknessConfig = {
+            enabled: false,           // 是否启用厚度功能
+            thicknessFunction: 'fish', // 厚度函数 ('fish', 'ellipse', 'spindle', 'leaf')
+            maxThickness: 30,         // 最大厚度
+            minThickness: 2,          // 最小厚度
+            fillColor: '#ff6b35',     // 填充颜色（橙色）
+            strokeColor: '#dc3545',   // 描边颜色（红色）
+            strokeWidth: 1,           // 描边宽度
+            drawOutline: true,        // 是否绘制轮廓线
+            drawFill: true,           // 是否填充
+            thicknessVisualization: 'gradient' // 厚度可视化方式 ('solid', 'gradient', 'shadow')
+        };
+        
         // 边缘点预处理配置
         this.edgeProcessConfig = {
             enableSort: true,      // 启用路径排序
@@ -62,8 +76,21 @@ class GraffitiApp {
         const gridSizeDisplay = document.getElementById('gridSizeDisplay');
         const imageUpload = document.getElementById('imageUpload');
         const edgeButton = document.getElementById('edgeDetection');
+        const testThicknessButton = document.getElementById('testThickness');
         const clearButton = document.getElementById('clearCanvas');
         const saveButton = document.getElementById('saveCanvas');
+        
+        // 厚度控制元素
+        const thicknessEnabled = document.getElementById('thicknessEnabled');
+        const thicknessControls = document.getElementById('thicknessControls');
+        const thicknessFunction = document.getElementById('thicknessFunction');
+        const maxThickness = document.getElementById('maxThickness');
+        const maxThicknessDisplay = document.getElementById('maxThicknessDisplay');
+        const minThickness = document.getElementById('minThickness');
+        const minThicknessDisplay = document.getElementById('minThicknessDisplay');
+        const thicknessVisualization = document.getElementById('thicknessVisualization');
+        const fillColor = document.getElementById('fillColor');
+        const strokeColor = document.getElementById('strokeColor');
         
         // 颜色选择器事件
         colorPicker.addEventListener('change', (e) => {
@@ -84,6 +111,85 @@ class GraffitiApp {
             gridSizeDisplay.textContent = size;
         });
         
+        // 厚度功能启用/禁用事件
+        thicknessEnabled.addEventListener('change', (e) => {
+            this.thicknessConfig.enabled = e.target.checked;
+            thicknessControls.style.display = e.target.checked ? 'block' : 'none';
+            
+            if (e.target.checked) {
+                this.showNotification('封闭图形厚度功能已启用', 'success');
+            } else {
+                this.showNotification('封闭图形厚度功能已禁用', 'info');
+            }
+        });
+        
+        // 厚度函数选择事件
+        thicknessFunction.addEventListener('change', (e) => {
+            this.thicknessConfig.thicknessFunction = e.target.value;
+            
+            const functionNames = {
+                'fish': '鱼形',
+                'ellipse': '椭圆形',
+                'spindle': '纺锤形',
+                'leaf': '叶子形'
+            };
+            
+            this.showNotification(`厚度函数已设置为: ${functionNames[e.target.value]}`, 'info');
+        });
+        
+        // 最大厚度调节事件
+        maxThickness.addEventListener('input', (e) => {
+            const thickness = parseInt(e.target.value);
+            this.thicknessConfig.maxThickness = thickness;
+            maxThicknessDisplay.textContent = thickness;
+            
+            // 确保最大厚度不小于最小厚度
+            if (thickness <= this.thicknessConfig.minThickness) {
+                this.thicknessConfig.minThickness = Math.max(1, thickness - 1);
+                minThickness.value = this.thicknessConfig.minThickness;
+                minThicknessDisplay.textContent = this.thicknessConfig.minThickness;
+            }
+        });
+        
+        // 最小厚度调节事件
+        minThickness.addEventListener('input', (e) => {
+            const thickness = parseInt(e.target.value);
+            this.thicknessConfig.minThickness = thickness;
+            minThicknessDisplay.textContent = thickness;
+            
+            // 确保最小厚度不大于最大厚度
+            if (thickness >= this.thicknessConfig.maxThickness) {
+                this.thicknessConfig.maxThickness = Math.min(100, thickness + 1);
+                maxThickness.value = this.thicknessConfig.maxThickness;
+                maxThicknessDisplay.textContent = this.thicknessConfig.maxThickness;
+            }
+        });
+        
+        // 可视化方式选择事件
+        thicknessVisualization.addEventListener('change', (e) => {
+            this.thicknessConfig.thicknessVisualization = e.target.value;
+            
+            const visualizationNames = {
+                'gradient': '渐变填充',
+                'solid': '纯色填充',
+                'shadow': '阴影效果'
+            };
+            
+            this.showNotification(`可视化方式已设置为: ${visualizationNames[e.target.value]}`, 'info');
+        });
+        
+        // 填充颜色选择事件
+        fillColor.addEventListener('change', (e) => {
+            this.thicknessConfig.fillColor = e.target.value;
+            this.showNotification('填充颜色已更新', 'info');
+        });
+        
+        // 描边颜色选择事件
+        strokeColor.addEventListener('change', (e) => {
+            this.thicknessConfig.strokeColor = e.target.value;
+            this.showNotification('描边颜色已更新', 'info');
+        });
+        
         // 图片导入事件
         imageUpload.addEventListener('change', (e) => {
             this.handleImageUpload(e);
@@ -92,6 +198,11 @@ class GraffitiApp {
         // 图像描边事件
         edgeButton.addEventListener('click', () => {
             this.handleEdgeDetection();
+        });
+        
+        // 测试厚度事件
+        testThicknessButton.addEventListener('click', () => {
+            this.testThicknessContour();
         });
         
         // 清空画布事件
@@ -146,6 +257,7 @@ class GraffitiApp {
             let processedPoints = edgePoints;
             let splitResult = null;
             let gridData = null;
+            let thickContour = null;
             
             // 预处理边缘点：排序 + 压缩
             if (this.edgeProcessConfig.enableSort || this.edgeProcessConfig.enableCompress) {
@@ -163,6 +275,16 @@ class GraffitiApp {
                     splitResult = this.imageProcessor.splitPointsAtRightmost(processedPoints);
                     gridData = this.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray, this.edgeDrawConfig.tolerance);
                     console.log('网格数据:', gridData);
+                    
+                    // 生成厚度轮廓数据
+                    if (this.thicknessConfig.enabled) {
+                        thickContour = this.imageProcessor.calculateContourThickness(processedPoints, {
+                            thicknessFunction: this.thicknessConfig.thicknessFunction,
+                            maxThickness: this.thicknessConfig.maxThickness,
+                            minThickness: this.thicknessConfig.minThickness
+                        });
+                        console.log('厚度轮廓数据:', thickContour);
+                    }
                 }
             }
             
@@ -190,6 +312,18 @@ class GraffitiApp {
                              drawSubdivisions: this.edgeDrawConfig.drawSubdivisions,
                              subdivisionColor: this.edgeDrawConfig.subdivisionColor,
                              subdivisionLineWidth: this.edgeDrawConfig.subdivisionLineWidth
+                         });
+                     }
+                     
+                     // 绘制厚度轮廓
+                     if (thickContour) {
+                         this.imageProcessor.drawThickContour(thickContour, {
+                             fillColor: this.thicknessConfig.fillColor,
+                             strokeColor: this.thicknessConfig.strokeColor,
+                             strokeWidth: this.thicknessConfig.strokeWidth,
+                             drawOutline: this.thicknessConfig.drawOutline,
+                             drawFill: this.thicknessConfig.drawFill,
+                             thicknessVisualization: this.thicknessConfig.thicknessVisualization
                          });
                      }
                 } else {
@@ -229,6 +363,17 @@ class GraffitiApp {
                 };
             }
             
+            // 添加厚度轮廓统计信息
+            if (thickContour) {
+                stats.thickContour = {
+                    pointCount: thickContour.length,
+                    thicknessFunction: this.thicknessConfig.thicknessFunction,
+                    maxThickness: this.thicknessConfig.maxThickness,
+                    minThickness: this.thicknessConfig.minThickness,
+                    visualization: this.thicknessConfig.thicknessVisualization
+                };
+            }
+            
             console.log(`📊 包含预处理和绘制的总耗时: ${stats.totalTimeWithProcessAndDraw.toFixed(2)}ms`);
             
             // 构建通知消息
@@ -238,10 +383,12 @@ class GraffitiApp {
                 `，切分为两条线 (${stats.splitResult.firstArrayCount}+${stats.splitResult.secondArrayCount}个点)` : '';
             const gridInfo = gridData ? 
                 `，生成 ${gridData.length} 组网格连接${this.edgeDrawConfig.drawSubdivisions ? '（含6等分）' : ''}` : '';
+            const thicknessInfo = thickContour ? 
+                `，生成封闭图形厚度（${this.thicknessConfig.thicknessFunction}形状）` : '';
             const drawInfo = this.edgeDrawConfig.enabled ? 
                 `，绘制耗时 ${drawTime.toFixed(0)}ms` : 
                 '（未绘制）';
-            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点${processInfo}${splitInfo}${gridInfo}，算法耗时 ${stats.totalTime.toFixed(0)}ms${drawInfo}`;
+            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点${processInfo}${splitInfo}${gridInfo}${thicknessInfo}，算法耗时 ${stats.totalTime.toFixed(0)}ms${drawInfo}`;
             this.showNotification(message, 'success');
         };
         
@@ -281,6 +428,24 @@ class GraffitiApp {
     }
     
     /**
+     * 设置封闭图形厚度配置
+     * @param {Object} config - 厚度配置
+     * @param {boolean} config.enabled - 是否启用厚度功能
+     * @param {string} config.thicknessFunction - 厚度函数 ('fish', 'ellipse', 'spindle', 'leaf')
+     * @param {number} config.maxThickness - 最大厚度
+     * @param {number} config.minThickness - 最小厚度
+     * @param {string} config.fillColor - 填充颜色
+     * @param {string} config.strokeColor - 描边颜色
+     * @param {number} config.strokeWidth - 描边宽度
+     * @param {boolean} config.drawOutline - 是否绘制轮廓线
+     * @param {boolean} config.drawFill - 是否填充
+     * @param {string} config.thicknessVisualization - 可视化方式 ('solid', 'gradient', 'shadow')
+     */
+    setThicknessConfig(config) {
+        this.thicknessConfig = { ...this.thicknessConfig, ...config };
+    }
+    
+    /**
      * 测试6等分网格功能
      * 创建一些测试数据并绘制6等分网格
      */
@@ -315,6 +480,62 @@ class GraffitiApp {
         
         // 显示测试结果通知
         this.showNotification('6等分网格测试完成！统一颜色网格效果', 'success');
+    }
+    
+    /**
+     * 测试封闭图形厚度功能
+     * 创建测试数据并展示不同的厚度函数效果
+     */
+    testThicknessContour() {
+        console.log('🧪 开始测试封闭图形厚度功能');
+        
+        // 创建测试轮廓数据：一条曲线
+        const testContour = [];
+        for (let i = 0; i <= 20; i++) {
+            const x = 100 + i * 15;
+            const y = 200 + Math.sin(i * 0.3) * 30;
+            testContour.push({x, y});
+        }
+        
+        // 清空画布
+        this.drawingEngine.clearCanvas();
+        
+        // 测试不同的厚度函数
+        const thicknessFunctions = ['fish', 'ellipse', 'spindle', 'leaf'];
+        const colors = ['#ff6b35', '#28a745', '#6f42c1', '#fd7e14'];
+        const visualizations = ['gradient', 'solid', 'shadow', 'gradient'];
+        
+        for (let i = 0; i < thicknessFunctions.length; i++) {
+            const offsetContour = testContour.map(point => ({
+                x: point.x,
+                y: point.y + i * 80 // 垂直偏移，避免重叠
+            }));
+            
+            console.log(`🎨 测试 ${thicknessFunctions[i]} 厚度函数`);
+            
+            this.imageProcessor.processAndDrawThickContour(
+                offsetContour,
+                {
+                    thicknessFunction: thicknessFunctions[i],
+                    maxThickness: 25,
+                    minThickness: 3
+                },
+                {
+                    fillColor: colors[i],
+                    strokeColor: colors[i],
+                    strokeWidth: 1,
+                    drawOutline: true,
+                    drawFill: true,
+                    thicknessVisualization: visualizations[i]
+                }
+            );
+        }
+        
+        console.log('✅ 封闭图形厚度测试完成');
+        console.log('📊 测试了4种厚度函数：鱼形、椭圆形、纺锤形、叶子形');
+        
+        // 显示测试结果通知
+        this.showNotification('封闭图形厚度测试完成！展示4种不同的厚度函数效果', 'success');
     }
     
     /**
@@ -424,7 +645,31 @@ document.addEventListener('DOMContentLoaded', () => {
      // 9. 测试6等分网格功能：
      // graffitiApp.testSubdivisionGrid();
      //
-     // 10. 分析结果：
+     // 10. 厚度轮廓功能：
+     // // 启用厚度功能
+     // graffitiApp.setThicknessConfig({
+     //     enabled: true,                    // 启用厚度功能
+     //     thicknessFunction: 'fish',        // 使用鱼形厚度函数
+     //     maxThickness: 40,                 // 最大厚度
+     //     minThickness: 3,                  // 最小厚度
+     //     fillColor: '#ff6b35',             // 橙色填充
+     //     strokeColor: '#dc3545',           // 红色描边
+     //     thicknessVisualization: 'gradient' // 渐变填充方式
+     // });
+     // graffitiApp.handleEdgeDetection();    // 边缘检测会自动应用厚度
+     //
+     // // 测试厚度轮廓功能
+     // graffitiApp.testThicknessContour();
+     //
+     // // 手动处理厚度轮廓
+     // const points = [{x: 100, y: 100}, {x: 200, y: 120}, {x: 300, y: 100}];
+     // const thickContour = graffitiApp.imageProcessor.processAndDrawThickContour(
+     //     points,
+     //     { thicknessFunction: 'ellipse', maxThickness: 30 },
+     //     { fillColor: '#28a745', thicknessVisualization: 'circle' }
+     // );
+     //
+     // 11. 分析结果：
      // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
      // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray);
      // console.log('第一条线点数:', splitResult.stats.firstArrayCount);

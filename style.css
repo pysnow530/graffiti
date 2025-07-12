@@ -137,6 +137,16 @@ button {
     transform: translateY(-2px);
 }
 
+#testThickness {
+    background: #fd7e14;
+    color: white;
+}
+
+#testThickness:hover {
+    background: #e8590c;
+    transform: translateY(-2px);
+}
+
 .canvas-container {
     display: flex;
     justify-content: center;
@@ -195,6 +205,72 @@ button {
     color: #212529;
 }
 
+/* 厚度控制面板样式 */
+.thickness-controls {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 8px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.thickness-controls label {
+    font-size: 12px;
+    color: #495057;
+    margin-bottom: 0;
+}
+
+.thickness-controls select {
+    padding: 4px 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 12px;
+    background-color: white;
+}
+
+.thickness-controls input[type="range"] {
+    width: 80px;
+    margin: 0 5px;
+}
+
+.thickness-controls input[type="color"] {
+    width: 30px;
+    height: 25px;
+    padding: 0;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.thickness-controls span {
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* 厚度控制面板标签样式 */
+.tool-group label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.tool-group input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+#gridSizeDisplay, #maxThicknessDisplay, #minThicknessDisplay {
+    font-weight: bold;
+    color: #495057;
+    min-width: 25px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     body {
@@ -230,5 +306,34 @@ button {
     
     .notification.show {
         transform: translateY(0);
+    }
+    
+    /* 厚度控制面板响应式样式 */
+    .thickness-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .thickness-controls label {
+        font-size: 14px;
+        text-align: center;
+    }
+    
+    .thickness-controls input[type="range"] {
+        width: 100%;
+        margin: 5px 0;
+    }
+    
+    .thickness-controls select {
+        width: 100%;
+        padding: 8px;
+        font-size: 14px;
+    }
+    
+    .thickness-controls input[type="color"] {
+        width: 50px;
+        height: 35px;
+        margin: 0 auto;
     }
 } 

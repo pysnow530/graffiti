@@ -821,4 +821,400 @@ class ImageProcessor {
         
         return points;
     }
+     
+     /**
+      * 根据轮廓位置计算厚度的函数集合
+      */
+     static thicknessFunctions = {
+         /**
+          * 鱼形厚度函数 - 头尖、身体厚、尾巴细
+          * @param {number} t - 位置参数 (0-1)
+          * @param {number} maxThickness - 最大厚度
+          * @returns {number} 厚度值
+          */
+         fish: (t, maxThickness) => {
+             // 鱼形：头部尖(0.1)，身体厚(0.3-0.7)，尾部细
+             if (t < 0.1) {
+                 // 头部：从0逐渐增加到最大厚度的60%
+                 return maxThickness * 0.6 * (t / 0.1);
+             } else if (t < 0.3) {
+                 // 前身：从60%增加到100%
+                 return maxThickness * (0.6 + 0.4 * ((t - 0.1) / 0.2));
+             } else if (t < 0.7) {
+                 // 身体中部：保持最大厚度
+                 return maxThickness;
+             } else if (t < 0.9) {
+                 // 后身：从100%减少到30%
+                 return maxThickness * (1 - 0.7 * ((t - 0.7) / 0.2));
+             } else {
+                 // 尾部：从30%减少到10%
+                 return maxThickness * (0.3 - 0.2 * ((t - 0.9) / 0.1));
+             }
+         },
+         
+         /**
+          * 椭圆形厚度函数 - 中间厚，两端细
+          * @param {number} t - 位置参数 (0-1)
+          * @param {number} maxThickness - 最大厚度
+          * @returns {number} 厚度值
+          */
+         ellipse: (t, maxThickness) => {
+             return maxThickness * Math.sin(Math.PI * t);
+         },
+         
+         /**
+          * 纺锤形厚度函数 - 渐变更平滑
+          * @param {number} t - 位置参数 (0-1)
+          * @param {number} maxThickness - 最大厚度
+          * @returns {number} 厚度值
+          */
+         spindle: (t, maxThickness) => {
+             // 使用平滑的三次函数
+             const smoothT = 3 * t * t - 2 * t * t * t; // 平滑插值
+             return maxThickness * Math.sin(Math.PI * smoothT);
+         },
+         
+         /**
+          * 叶子形厚度函数 - 一端尖，一端圆
+          * @param {number} t - 位置参数 (0-1)
+          * @param {number} maxThickness - 最大厚度
+          * @returns {number} 厚度值
+          */
+         leaf: (t, maxThickness) => {
+             return maxThickness * Math.sqrt(t * (1 - t * t));
+         }
+     };
+     
+     /**
+      * 计算封闭图形的厚度填充数据
+      * @param {Array<{x: number, y: number}>} contour - 轮廓点数组
+      * @param {Object} options - 厚度配置
+      * @param {string} options.thicknessFunction - 厚度函数名 ('fish', 'ellipse', 'spindle', 'leaf')
+      * @param {number} options.maxThickness - 最大厚度
+      * @param {number} options.minThickness - 最小厚度
+      * @returns {Object} 厚度填充数据
+      */
+     calculateContourThickness(contour, options = {}) {
+         const defaultOptions = {
+             thicknessFunction: 'fish',
+             maxThickness: 20,
+             minThickness: 2
+         };
+         
+         const finalOptions = { ...defaultOptions, ...options };
+         
+         if (!contour || contour.length === 0) {
+             return null;
+         }
+         
+         console.log(`📏 开始计算封闭图形厚度，使用 ${finalOptions.thicknessFunction} 函数`);
+         
+         // 确保轮廓是封闭的
+         const closedContour = this.ensureClosedContour(contour);
+         
+         // 计算边界框
+         const bounds = this.calculateBounds(closedContour);
+         
+         // 根据厚度函数计算填充区域
+         const thicknessData = this.calculateRegionThickness(closedContour, bounds, finalOptions);
+         
+         console.log(`✅ 封闭图形厚度计算完成`);
+         return thicknessData;
+     }
+     
+     /**
+      * 确保轮廓是封闭的
+      * @param {Array<{x: number, y: number}>} contour - 原始轮廓
+      * @returns {Array<{x: number, y: number}>} 封闭的轮廓
+      */
+     ensureClosedContour(contour) {
+         if (contour.length < 3) {
+             return contour;
+         }
+         
+         const firstPoint = contour[0];
+         const lastPoint = contour[contour.length - 1];
+         
+         // 如果首尾点距离较远，添加闭合点
+         const distance = this.getDistance(firstPoint, lastPoint);
+         if (distance > 5) {
+             return [...contour, firstPoint];
+         }
+         
+         return contour;
+     }
+     
+     /**
+      * 计算边界框
+      * @param {Array<{x: number, y: number}>} points - 点数组
+      * @returns {Object} 边界框 {minX, maxX, minY, maxY, width, height}
+      */
+     calculateBounds(points) {
+         if (points.length === 0) {
+             return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
+         }
+         
+         let minX = points[0].x;
+         let maxX = points[0].x;
+         let minY = points[0].y;
+         let maxY = points[0].y;
+         
+         for (const point of points) {
+             minX = Math.min(minX, point.x);
+             maxX = Math.max(maxX, point.x);
+             minY = Math.min(minY, point.y);
+             maxY = Math.max(maxY, point.y);
+         }
+         
+         return {
+             minX,
+             maxX,
+             minY,
+             maxY,
+             width: maxX - minX,
+             height: maxY - minY,
+             centerX: (minX + maxX) / 2,
+             centerY: (minY + maxY) / 2
+         };
+     }
+     
+     /**
+      * 计算区域厚度数据
+      * @param {Array<{x: number, y: number}>} contour - 封闭轮廓
+      * @param {Object} bounds - 边界框
+      * @param {Object} options - 厚度选项
+      * @returns {Object} 厚度数据
+      */
+     calculateRegionThickness(contour, bounds, options) {
+         let thicknessFunc = ImageProcessor.thicknessFunctions[options.thicknessFunction];
+         if (!thicknessFunc) {
+             console.warn(`未知的厚度函数: ${options.thicknessFunction}，使用默认的 fish 函数`);
+             thicknessFunc = ImageProcessor.thicknessFunctions.fish;
+         }
+         
+         return {
+             contour: contour,
+             bounds: bounds,
+             thicknessFunction: thicknessFunc,
+             maxThickness: options.maxThickness,
+             minThickness: options.minThickness,
+             functionName: options.thicknessFunction
+         };
+     }
+
+     /**
+      * 绘制带厚度的封闭图形
+      * @param {Object} thicknessData - 厚度数据
+      * @param {Object} options - 绘制选项
+      * @param {string} options.fillColor - 填充颜色
+      * @param {string} options.strokeColor - 描边颜色
+      * @param {number} options.strokeWidth - 描边宽度
+      * @param {boolean} options.drawOutline - 是否绘制轮廓线
+      * @param {boolean} options.drawFill - 是否填充
+      * @param {string} options.thicknessVisualization - 厚度可视化方式 ('solid', 'gradient', 'shadow')
+      */
+     drawThickContour(thicknessData, options = {}) {
+         const defaultOptions = {
+             fillColor: '#ff6b35',
+             strokeColor: '#dc3545',
+             strokeWidth: 1,
+             drawOutline: true,
+             drawFill: true,
+             thicknessVisualization: 'gradient'
+         };
+         
+         const finalOptions = { ...defaultOptions, ...options };
+         
+         if (!thicknessData || !thicknessData.contour) {
+             console.warn('没有厚度数据可以绘制');
+             return;
+         }
+         
+         console.log(`🎨 开始绘制带厚度的封闭图形，使用 ${finalOptions.thicknessVisualization} 效果`);
+         
+         // 保存绘图状态
+         const originalFillStyle = this.ctx.fillStyle;
+         const originalStrokeStyle = this.ctx.strokeStyle;
+         const originalLineWidth = this.ctx.lineWidth;
+         
+         // 根据可视化方式绘制
+         switch (finalOptions.thicknessVisualization) {
+             case 'solid':
+                 this.drawSolidRegion(thicknessData, finalOptions);
+                 break;
+             case 'gradient':
+                 this.drawGradientRegion(thicknessData, finalOptions);
+                 break;
+             case 'shadow':
+                 this.drawShadowRegion(thicknessData, finalOptions);
+                 break;
+             default:
+                 this.drawGradientRegion(thicknessData, finalOptions);
+         }
+         
+         // 恢复绘图状态
+         this.ctx.fillStyle = originalFillStyle;
+         this.ctx.strokeStyle = originalStrokeStyle;
+         this.ctx.lineWidth = originalLineWidth;
+         
+         console.log(`✅ 封闭图形厚度绘制完成，使用 ${finalOptions.thicknessVisualization} 方式`);
+     }
+     
+     /**
+      * 绘制纯色填充的封闭图形
+      * @private
+      */
+     drawSolidRegion(thicknessData, options) {
+         const { contour } = thicknessData;
+         
+         // 绘制基础填充
+         this.ctx.beginPath();
+         this.ctx.moveTo(contour[0].x, contour[0].y);
+         
+         for (let i = 1; i < contour.length; i++) {
+             this.ctx.lineTo(contour[i].x, contour[i].y);
+         }
+         
+         this.ctx.closePath();
+         
+         if (options.drawFill) {
+             this.ctx.fillStyle = options.fillColor;
+             this.ctx.fill();
+         }
+         
+         if (options.drawOutline) {
+             this.ctx.strokeStyle = options.strokeColor;
+             this.ctx.lineWidth = options.strokeWidth;
+             this.ctx.stroke();
+         }
+     }
+     
+     /**
+      * 绘制渐变填充的封闭图形（模拟厚度效果）
+      * @private
+      */
+     drawGradientRegion(thicknessData, options) {
+         const { contour, bounds, thicknessFunction, maxThickness } = thicknessData;
+         
+         // 创建径向渐变效果
+         const gradient = this.ctx.createRadialGradient(
+             bounds.centerX, bounds.centerY, 0,
+             bounds.centerX, bounds.centerY, Math.max(bounds.width, bounds.height) / 2
+         );
+         
+         // 根据厚度函数设置渐变颜色
+         const baseColor = this.hexToRgb(options.fillColor);
+         const steps = 10;
+         
+         for (let i = 0; i <= steps; i++) {
+             const t = i / steps;
+             const thickness = thicknessFunction(t, maxThickness);
+             const alpha = 0.2 + (thickness / maxThickness) * 0.8; // 根据厚度调整透明度
+             
+             gradient.addColorStop(t, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${alpha})`);
+         }
+         
+         // 绘制填充区域
+         this.ctx.beginPath();
+         this.ctx.moveTo(contour[0].x, contour[0].y);
+         
+         for (let i = 1; i < contour.length; i++) {
+             this.ctx.lineTo(contour[i].x, contour[i].y);
+         }
+         
+         this.ctx.closePath();
+         
+         if (options.drawFill) {
+             this.ctx.fillStyle = gradient;
+             this.ctx.fill();
+         }
+         
+         if (options.drawOutline) {
+             this.ctx.strokeStyle = options.strokeColor;
+             this.ctx.lineWidth = options.strokeWidth;
+             this.ctx.stroke();
+         }
+     }
+     
+     /**
+      * 绘制阴影效果的封闭图形（模拟立体厚度）
+      * @private
+      */
+     drawShadowRegion(thicknessData, options) {
+         const { contour, bounds, thicknessFunction, maxThickness } = thicknessData;
+         
+         // 计算阴影偏移
+         const shadowOffset = maxThickness * 0.3;
+         
+         // 先绘制阴影
+         this.ctx.beginPath();
+         this.ctx.moveTo(contour[0].x + shadowOffset, contour[0].y + shadowOffset);
+         
+         for (let i = 1; i < contour.length; i++) {
+             this.ctx.lineTo(contour[i].x + shadowOffset, contour[i].y + shadowOffset);
+         }
+         
+         this.ctx.closePath();
+         
+         // 阴影填充
+         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+         this.ctx.fill();
+         
+         // 再绘制主体
+         this.ctx.beginPath();
+         this.ctx.moveTo(contour[0].x, contour[0].y);
+         
+         for (let i = 1; i < contour.length; i++) {
+             this.ctx.lineTo(contour[i].x, contour[i].y);
+         }
+         
+         this.ctx.closePath();
+         
+         if (options.drawFill) {
+             this.ctx.fillStyle = options.fillColor;
+             this.ctx.fill();
+         }
+         
+         if (options.drawOutline) {
+             this.ctx.strokeStyle = options.strokeColor;
+             this.ctx.lineWidth = options.strokeWidth;
+             this.ctx.stroke();
+         }
+     }
+     
+     /**
+      * 将十六进制颜色转换为RGB
+      * @param {string} hex - 十六进制颜色值
+      * @returns {Object} RGB颜色对象
+      */
+     hexToRgb(hex) {
+         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+         return result ? {
+             r: parseInt(result[1], 16),
+             g: parseInt(result[2], 16),
+             b: parseInt(result[3], 16)
+         } : { r: 255, g: 107, b: 53 }; // 默认橙色
+     }
+     
+     /**
+      * 完整的厚度轮廓处理流程
+      * @param {Array<{x: number, y: number}>} contour - 原始轮廓点
+      * @param {Object} thicknessOptions - 厚度计算选项
+      * @param {Object} drawOptions - 绘制选项
+      * @returns {Object} 厚度数据
+      */
+     processAndDrawThickContour(contour, thicknessOptions = {}, drawOptions = {}) {
+         console.log(`🔄 开始处理带厚度的封闭图形，输入 ${contour.length} 个点`);
+         
+         // 1. 计算厚度数据
+         const thicknessData = this.calculateContourThickness(contour, thicknessOptions);
+         
+         // 2. 绘制厚度图形
+         if (thicknessData) {
+             this.drawThickContour(thicknessData, drawOptions);
+         }
+         
+         console.log(`✅ 厚度图形处理完成`);
+         return thicknessData;
+     }
 }

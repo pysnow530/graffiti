@@ -12,6 +12,8 @@
 - ⚙️ **扫描精度** - 可调节角度扫描间隔（1-20度）
 - 🕸️ **智能网格** - 自动生成6等分网格，垂直连接+水平等分线
 - 🔧 **网格定制** - 自定义网格颜色、线宽、容差等参数
+- 🐠 **厚度轮廓** - 基于鱼形算法的厚度函数，支持多种形状和可视化方式
+- 🎨 **多种厚度函数** - 鱼形、椭圆形、纺锤形、叶子形等多种厚度分布
 - 🧹 **清空画布** - 一键清空所有内容
 - 💾 **保存图片** - 将作品保存为PNG格式
 - 📱 **移动端支持** - 支持触摸设备使用
@@ -40,8 +42,16 @@
    - 用蓝色圆点标记出图像的外轮廓边缘
    - **智能网格生成**：自动将轮廓切分成两条线，生成垂直连接并进行6等分
    - **网格效果**：统一绿色的垂直线和水平等分线，形成精细的网格结构
+   - **厚度轮廓**：基于鱼形算法为轮廓添加厚度，支持多种形状和可视化方式
 
-5. **管理作品**
+5. **厚度轮廓功能**
+   - **鱼形厚度**：头部尖锐、身体厚实、尾部细小的自然形状
+   - **椭圆形厚度**：中间厚、两端细的对称形状
+   - **纺锤形厚度**：平滑过渡的梭形效果
+   - **叶子形厚度**：一端尖锐、一端圆润的不对称形状
+   - **可视化方式**：线条模式、圆形模式、渐变填充模式
+
+6. **管理作品**
    - 点击"清空画布"按钮清除所有内容
    - 点击"保存图片"按钮下载PNG格式的作品
 
@@ -82,6 +92,7 @@ graffiti/
   - **道格拉斯-普克压缩算法**
   - **轮廓切分算法**（最右侧点切分）
   - **6等分网格生成**（垂直连接+水平等分线）
+  - **厚度轮廓算法**（鱼形函数+多种可视化）
 
 ### 🔍 EdgeDetectionAlgorithm (边缘检测算法)
 - **职责**: 图像边缘检测和相关算法实现
@@ -124,6 +135,8 @@ graffiti/
 - **道格拉斯-普克压缩算法** - 智能简化路径，保持形状特征
 - **轮廓切分算法** - 基于最右侧点的智能切分，将轮廓分成两条线
 - **6等分网格算法** - 垂直连接点匹配+线性插值+水平等分线绘制
+- **厚度轮廓算法** - 基于鱼形函数的厚度分布计算+多种可视化方式
+- **数学厚度函数** - 鱼形、椭圆形、纺锤形、叶子形等多种厚度分布函数
 
 ## 运行方法
 
@@ -168,7 +181,7 @@ ImageProcessor (渲染)
 ### 🔧 模块扩展指南
 
 - **DrawingEngine**: 添加新的画笔样式、几何图形绘制工具
-- **ImageProcessor**: 实现图像滤镜、特效处理功能、自定义网格算法
+- **ImageProcessor**: 实现图像滤镜、特效处理功能、自定义网格算法、厚度轮廓算法
 - **EdgeDetectionAlgorithm**: 集成高级边缘检测算法（Canny、Sobel等）
 - **GraffitiApp**: 添加新的UI功能、键盘快捷键、撤销/重做
 - **Utils**: 扩展数学工具、性能监控、调试辅助功能
@@ -186,6 +199,10 @@ ImageProcessor (渲染)
 - 可配置的网格等分数量（支持4等分、8等分、12等分等）
 - 网格动画效果和过渡动画
 - 网格数据导出功能（JSON、SVG格式）
+- 自定义厚度函数编辑器（可视化函数曲线编辑）
+- 厚度轮廓动画效果（厚度变化动画）
+- 3D厚度轮廓效果（立体感渲染）
+- 厚度轮廓纹理填充（支持图案和渐变）
 
 ### 📊 API数据格式
 
@@ -225,6 +242,17 @@ app.setEdgeDrawConfig({
     subdivisionLineWidth: 1      // 等分线宽度
 });
 
+// 配置厚度轮廓参数
+app.setThicknessConfig({
+    enabled: true,              // 启用厚度功能
+    thicknessFunction: 'fish',  // 厚度函数类型
+    maxThickness: 40,           // 最大厚度
+    minThickness: 3,            // 最小厚度
+    fillColor: '#ff6b35',       // 填充颜色
+    strokeColor: '#dc3545',     // 描边颜色
+    thicknessVisualization: 'gradient' // 可视化方式
+});
+
 // 配置边缘点预处理参数
 app.setEdgeProcessConfig({
     enableSort: true,      // 启用路径排序
@@ -240,8 +268,19 @@ app.imageProcessor.drawContour(edgePoints, {
     drawPoints: true
 });
 
+// 手动绘制厚度轮廓
+app.imageProcessor.processAndDrawThickContour(edgePoints, {
+    thicknessFunction: 'fish',   // 鱼形厚度
+    maxThickness: 25,
+    minThickness: 2
+}, {
+    fillColor: '#ff6b35',        // 橙色填充
+    thicknessVisualization: 'gradient' // 渐变可视化
+});
+
 // 只执行算法，不自动绘制
 app.setEdgeDrawConfig({ enabled: false });
+app.setThicknessConfig({ enabled: false });
 app.handleEdgeDetection(); // 只计算，返回数据
 ```
 
@@ -293,6 +332,15 @@ app.setEdgeDrawConfig({
     lineWidth: 3,
     lineColor: '#ff6b35'  // 橙色线条
 });
+
+// 模式5：厚度轮廓（艺术化效果）
+app.setThicknessConfig({
+    enabled: true,
+    thicknessFunction: 'fish',
+    maxThickness: 30,
+    fillColor: '#ff6b35',
+    thicknessVisualization: 'gradient'
+});
 ```
 
 **优势**：
@@ -309,6 +357,9 @@ app.setEdgeDrawConfig({
 - ✅ **6等分网格生成**，自动创建精细网格结构
 - ✅ **智能点匹配**，基于容差的连接点匹配算法
 - ✅ **线性插值算法**，自动补充缺失的连接点
+- ✅ **厚度轮廓算法**，基于鱼形函数的自然厚度分布
+- ✅ **多种厚度函数**，支持鱼形、椭圆形、纺锤形、叶子形等
+- ✅ **丰富可视化方式**，线条、圆形、渐变三种绘制模式
 
 ## 边缘检测算法优势
 
@@ -321,6 +372,9 @@ app.setEdgeDrawConfig({
 - ✅ **实用性强**：满足大部分日常涂鸦和图像处理需求
 - ✅ **智能网格**：自动生成6等分网格，形成精细的网格结构
 - ✅ **可定制性**：支持自定义网格颜色、线宽、容差等参数
+- ✅ **厚度轮廓**：基于鱼形算法的自然厚度分布，实现艺术化效果
+- ✅ **多样化函数**：鱼形、椭圆形、纺锤形、叶子形等多种厚度函数
+- ✅ **灵活可视化**：线条、圆形、渐变三种可视化方式可选
 
 ### 🚀 算法进化历程
 
@@ -329,6 +383,7 @@ app.setEdgeDrawConfig({
 | 1.0 | 单线扫描 | 0像素 | 理想线条 | ⭐⭐ |
 | **2.0** | **5点扫描带** | **±2像素** | **日常使用** | **⭐⭐⭐** |
 | **3.0** | **6等分网格** | **智能匹配** | **统一颜色网格** | **⭐⭐⭐⭐** |
+| **4.0** | **厚度轮廓** | **鱼形函数** | **艺术化效果** | **⭐⭐⭐⭐⭐** |
 
 ### 🎯 5点扫描带结构示意
 ```
@@ -390,6 +445,9 @@ graffitiApp.imageProcessor.drawGrid(gridData, {
 
 // 测试6等分网格功能
 graffitiApp.testSubdivisionGrid();
+
+// 测试厚度轮廓功能
+graffitiApp.testThicknessContour();
 ```
 
 **算法原理**：
@@ -406,6 +464,66 @@ graffitiApp.testSubdivisionGrid();
 - 🎨 **分层绘制** - 主网格、等分线、网格点分层渲染
 - ⚡ **性能优化** - 批量绘制，减少Canvas操作次数
 - 🌈 **颜色统一** - 横向和纵向线条使用相同颜色，保持视觉一致性
+
+### 🐠 厚度轮廓API
+
+**核心功能**：
+```javascript
+// 启用厚度轮廓功能
+graffitiApp.setThicknessConfig({
+    enabled: true,                    // 启用厚度功能
+    thicknessFunction: 'fish',        // 厚度函数类型
+    maxThickness: 40,                 // 最大厚度
+    minThickness: 3,                  // 最小厚度
+    fillColor: '#ff6b35',             // 填充颜色
+    strokeColor: '#dc3545',           // 描边颜色
+    strokeWidth: 1,                   // 描边宽度
+    drawOutline: true,                // 是否绘制轮廓
+    drawFill: true,                   // 是否填充
+    thicknessVisualization: 'gradient' // 可视化方式
+});
+
+// 边缘检测会自动应用厚度轮廓
+graffitiApp.handleEdgeDetection();
+
+// 手动处理厚度轮廓
+const points = [{x: 100, y: 100}, {x: 200, y: 120}, {x: 300, y: 100}];
+const thickContour = graffitiApp.imageProcessor.processAndDrawThickContour(
+    points,
+    {
+        thicknessFunction: 'ellipse',    // 椭圆形厚度
+        maxThickness: 30,
+        minThickness: 2
+    },
+    {
+        fillColor: '#28a745',            // 绿色填充
+        thicknessVisualization: 'circle', // 圆形可视化
+        drawOutline: true,
+        drawFill: true
+    }
+);
+
+// 测试不同厚度函数
+graffitiApp.testThicknessContour();
+```
+
+**厚度函数说明**：
+- **fish** - 鱼形：头部尖锐、身体厚实、尾部细小
+- **ellipse** - 椭圆形：中间厚、两端细的对称形状
+- **spindle** - 纺锤形：平滑过渡的梭形效果
+- **leaf** - 叶子形：一端尖锐、一端圆润的不对称形状
+
+**可视化方式**：
+- **line** - 线条模式：用垂直线条表示厚度
+- **circle** - 圆形模式：用圆形表示厚度
+- **gradient** - 渐变模式：填充形状表示厚度
+
+**算法特点**：
+- 🐠 **鱼形算法** - 模拟自然生物的形状特征
+- 📐 **数学精确** - 基于数学函数计算厚度分布
+- 🎨 **多种可视化** - 支持线条、圆形、渐变三种绘制方式
+- 🔧 **高度可配置** - 支持自定义所有参数
+- ⚡ **高性能** - 优化的算法确保流畅的绘制体验
 
 ---
 

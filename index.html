@@ -31,9 +31,47 @@
             </div>
             
             <div class="tool-group">
+                <label>
+                    <input type="checkbox" id="thicknessEnabled"> 启用封闭图形厚度
+                </label>
+            </div>
+            
+            <div class="tool-group thickness-controls" id="thicknessControls" style="display: none;">
+                <label for="thicknessFunction">厚度函数:</label>
+                <select id="thicknessFunction">
+                    <option value="fish">鱼形</option>
+                    <option value="ellipse">椭圆形</option>
+                    <option value="spindle">纺锤形</option>
+                    <option value="leaf">叶子形</option>
+                </select>
+                
+                <label for="maxThickness">最大厚度:</label>
+                <input type="range" id="maxThickness" min="5" max="100" value="30">
+                <span id="maxThicknessDisplay">30</span>px
+                
+                <label for="minThickness">最小厚度:</label>
+                <input type="range" id="minThickness" min="1" max="20" value="2">
+                <span id="minThicknessDisplay">2</span>px
+                
+                <label for="thicknessVisualization">可视化方式:</label>
+                <select id="thicknessVisualization">
+                    <option value="gradient">渐变填充</option>
+                    <option value="solid">纯色填充</option>
+                    <option value="shadow">阴影效果</option>
+                </select>
+                
+                <label for="fillColor">填充颜色:</label>
+                <input type="color" id="fillColor" value="#ff6b35">
+                
+                <label for="strokeColor">描边颜色:</label>
+                <input type="color" id="strokeColor" value="#dc3545">
+            </div>
+            
+            <div class="tool-group">
                 <label for="imageUpload" class="upload-btn">导入图片</label>
                 <input type="file" id="imageUpload" accept="image/*" style="display: none;">
                 <button id="edgeDetection">图像描边</button>
+                <button id="testThickness">测试厚度</button>
                 <button id="clearCanvas">清空画布</button>
                 <button id="saveCanvas">保存图片</button>
             </div>
