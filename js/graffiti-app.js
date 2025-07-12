@@ -50,10 +50,8 @@ class GraffitiApp {
             thicknessVisualization: 'gradient' // 厚度可视化方式 ('solid', 'gradient', 'shadow')
         };
         
-        // 边缘点预处理配置
+        // 边缘点稀疏化配置
         this.edgeProcessConfig = {
-            enableSort: true,      // 启用路径排序
-            enableCompress: true,  // 启用道格拉斯-普克压缩
             tolerance: 2.0         // 压缩容差
         };
         
@@ -277,94 +275,100 @@ class GraffitiApp {
             const edgePoints = this.edgeDetection.detectEdges();
             
             // 处理边缘检测结果
-            let processTime = 0;
-            let drawTime = 0;
-            let processedPoints = edgePoints;
-            let splitResult = null;
+            let processedPoints;
+            let firstArray = [];
+            let secondArray = [];
             let gridData = null;
             let thickContour = null;
             
-            // 预处理边缘点：排序 + 压缩
-            if (this.edgeProcessConfig.enableSort || this.edgeProcessConfig.enableCompress) {
-                const processStartTime = performance.now();
-                processedPoints = this.imageProcessor.preprocessEdgePoints(
-                    edgePoints, 
-                    this.edgeProcessConfig
-                );
-                processTime = performance.now() - processStartTime;
-                
-                // 切分成两条线
-                if (processedPoints.length > 0) {
-                    splitResult = this.imageProcessor.splitPointsAtRightmost(processedPoints);
-                    gridData = this.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray, this.edgeDrawConfig.tolerance);
-                    
-                    // 保存网格数据供3D生成使用
-                    this.latestGridData = gridData;
-                    
-                    // 生成厚度轮廓数据
-                    if (this.thicknessConfig.enabled) {
-                        thickContour = this.imageProcessor.calculateContourThickness(processedPoints, {
-                            thicknessFunction: this.thicknessConfig.thicknessFunction,
-                            maxThickness: this.thicknessConfig.maxThickness,
-                            minThickness: this.thicknessConfig.minThickness
-                        });
-                        
-                        // 保存厚度数据供3D生成使用
-                        this.latestThicknessData = thickContour;
-                    }
-                }
+            // 稀疏化边缘点：排序 + 压缩（默认都执行）
+            processedPoints = this.imageProcessor.sparsifyEdgePoints(
+                edgePoints, 
+                this.edgeProcessConfig
+            );
+            
+            // 切分成两条线
+            if (edgePoints.length === 0) {
+                throw new Error('边缘点数组为空，无法进行后续处理');
+            }
+
+            const splitResult = this.imageProcessor.splitPointsAtRightmost(processedPoints);
+            firstArray = splitResult.firstArray;
+            secondArray = splitResult.secondArray;
+            gridData = this.imageProcessor.generateGridData(firstArray, secondArray, this.edgeDrawConfig.tolerance);
+
+            // 保存网格数据供3D生成使用
+            this.latestGridData = gridData;
+
+            // 生成厚度轮廓数据
+            if (this.thicknessConfig.enabled) {
+                thickContour = this.imageProcessor.calculateContourThickness(processedPoints, {
+                    thicknessFunction: this.thicknessConfig.thicknessFunction,
+                    maxThickness: this.thicknessConfig.maxThickness,
+                    minThickness: this.thicknessConfig.minThickness
+                });
+
+                // 保存厚度数据供3D生成使用
+                this.latestThicknessData = thickContour;
             }
             
             // 根据配置决定是否绘制边缘点
             if (this.edgeDrawConfig.enabled) {
-                const drawStartTime = performance.now();
-                
-                if (splitResult && (splitResult.firstArray.length > 0 || splitResult.secondArray.length > 0)) {
-                    // 使用 image-processor 的方法绘制切分后的两条线
-                    this.imageProcessor.drawSplitLines(splitResult, {
-                        firstLineColor: this.edgeDrawConfig.color,
-                        secondLineColor: '#ff0000',  // 红色
-                        lineWidth: this.edgeDrawConfig.lineWidth,
-                        pointRadius: this.edgeDrawConfig.radius,
-                        drawPoints: this.edgeDrawConfig.drawPoints,
-                        drawLines: this.edgeDrawConfig.drawLines
-                    });
+                if ((firstArray.length > 0 || secondArray.length > 0)) {
+                    // 绘制第一条线
+                    if (firstArray.length > 0) {
+                        this.imageProcessor.drawSplitLines(firstArray, {
+                            color: this.edgeDrawConfig.color,
+                            lineWidth: this.edgeDrawConfig.lineWidth,
+                            pointRadius: this.edgeDrawConfig.radius,
+                            drawPoints: this.edgeDrawConfig.drawPoints,
+                            drawLines: this.edgeDrawConfig.drawLines
+                        });
+                    }
+                    
+                    // 绘制第二条线
+                    if (secondArray.length > 0) {
+                        this.imageProcessor.drawSplitLines(secondArray, {
+                            color: '#ff0000',  // 红色
+                            lineWidth: this.edgeDrawConfig.lineWidth,
+                            pointRadius: this.edgeDrawConfig.radius,
+                            drawPoints: this.edgeDrawConfig.drawPoints,
+                            drawLines: this.edgeDrawConfig.drawLines
+                        });
+                    }
 
-                        if (gridData) {
-                         this.imageProcessor.drawGrid(gridData, {
-                             gridColor: this.edgeDrawConfig.gridColor,
-                             gridLineWidth: this.edgeDrawConfig.gridLineWidth,
-                             drawGridPoints: this.edgeDrawConfig.drawGridPoints,
-                             gridPointRadius: this.edgeDrawConfig.gridPointRadius,
-                             drawSubdivisions: this.edgeDrawConfig.drawSubdivisions,
-                             subdivisionColor: this.edgeDrawConfig.subdivisionColor,
-                             subdivisionLineWidth: this.edgeDrawConfig.subdivisionLineWidth
-                         });
-                     }
+                    if (gridData) {
+                        this.imageProcessor.drawGrid(gridData, {
+                            gridColor: this.edgeDrawConfig.gridColor,
+                            gridLineWidth: this.edgeDrawConfig.gridLineWidth,
+                            drawGridPoints: this.edgeDrawConfig.drawGridPoints,
+                            gridPointRadius: this.edgeDrawConfig.gridPointRadius,
+                            drawSubdivisions: this.edgeDrawConfig.drawSubdivisions,
+                            subdivisionColor: this.edgeDrawConfig.subdivisionColor,
+                            subdivisionLineWidth: this.edgeDrawConfig.subdivisionLineWidth
+                        });
+                    }
                      
-                     // 绘制厚度轮廓
-                     if (thickContour) {
-                         this.imageProcessor.drawThickContour(thickContour, {
-                             fillColor: this.thicknessConfig.fillColor,
-                             strokeColor: this.thicknessConfig.strokeColor,
-                             strokeWidth: this.thicknessConfig.strokeWidth,
-                             drawOutline: this.thicknessConfig.drawOutline,
-                             drawFill: this.thicknessConfig.drawFill,
-                             thicknessVisualization: this.thicknessConfig.thicknessVisualization
-                         });
-                     }
+                    // 绘制厚度轮廓
+                    if (thickContour) {
+                        this.imageProcessor.drawThickContour(thickContour, {
+                            fillColor: this.thicknessConfig.fillColor,
+                            strokeColor: this.thicknessConfig.strokeColor,
+                            strokeWidth: this.thicknessConfig.strokeWidth,
+                            drawOutline: this.thicknessConfig.drawOutline,
+                            drawFill: this.thicknessConfig.drawFill,
+                            thicknessVisualization: this.thicknessConfig.thicknessVisualization
+                        });
+                    }
                 } else {
                     // 如果没有切分结果，使用原始方式绘制
                     this.imageProcessor.drawContour(processedPoints, this.edgeDrawConfig);
                 }
-                
-                drawTime = performance.now() - drawStartTime;
             }
             
             // 构建总结性通知消息
-            const processInfo = (this.edgeProcessConfig.enableSort || this.edgeProcessConfig.enableCompress) ? 
-                `，预处理后 ${processedPoints.length} 个点` : '';
-            const splitInfo = splitResult ? 
+            const processInfo = `，稀疏化后 ${processedPoints.length} 个点`;
+            const splitInfo = (firstArray.length > 0 || secondArray.length > 0) ? 
                 `，切分为两条线` : '';
             const gridInfo = gridData ? 
                 `，生成 ${gridData.length} 组网格连接` : '';
@@ -397,10 +401,8 @@ class GraffitiApp {
     }
     
     /**
-     * 设置边缘点预处理配置
-     * @param {Object} config - 预处理配置
-     * @param {boolean} config.enableSort - 是否启用路径排序
-     * @param {boolean} config.enableCompress - 是否启用道格拉斯-普克压缩
+     * 设置边缘点稀疏化配置
+     * @param {Object} config - 稀疏化配置
      * @param {number} config.tolerance - 压缩容差（越小保留的点越多）
      */
     setEdgeProcessConfig(config) {
@@ -648,16 +650,24 @@ document.addEventListener('DOMContentLoaded', () => {
     //
     // 4. 切分线自定义样式：
     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
-    // graffitiApp.imageProcessor.drawSplitLines(splitResult, {
-    //     firstLineColor: '#ff6b35',     // 橙色第一条线
-    //     secondLineColor: '#6f42c1',    // 紫色第二条线
+    // // 绘制第一条线
+    // graffitiApp.imageProcessor.drawSplitLines(splitResult.firstArray, {
+    //     color: '#ff6b35',     // 橙色第一条线
+    //     lineWidth: 3,
+    //     pointRadius: 4,
+    //     drawPoints: true,
+    //     drawLines: true
+    // });
+    // // 绘制第二条线
+    // graffitiApp.imageProcessor.drawSplitLines(splitResult.secondArray, {
+    //     color: '#6f42c1',     // 紫色第二条线
     //     lineWidth: 3,
     //     pointRadius: 4,
     //     drawPoints: true,
     //     drawLines: true
     // });
     //
-    // 5. 完整流程（预处理 -> 切分 -> 网格 -> 绘制）：
+    // 5. 完整流程（稀疏化 -> 切分 -> 网格 -> 绘制）：
     // const rawPoints = [{x: 50, y: 100}, {x: 150, y: 50}, {x: 250, y: 100}, {x: 200, y: 150}];
     // const splitResult = graffitiApp.imageProcessor.processAndSplitPoints(rawPoints);
     // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray);
@@ -723,9 +733,8 @@ document.addEventListener('DOMContentLoaded', () => {
      // 11. 分析结果：
      // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
      // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray);
-     // console.log('第一条线点数:', splitResult.stats.firstArrayCount);
-     // console.log('第二条线点数:', splitResult.stats.secondArrayCount);
+     // console.log('第一条线点数:', splitResult.firstArray.length);
+     // console.log('第二条线点数:', splitResult.secondArray.length);
      // console.log('网格连接数:', gridData.length);
-     // console.log('最大X值:', splitResult.stats.maxX);
      // console.log('6等分网格:', '每个垂直连接被分为6段，产生7个等分点，横向线与纵向线颜色一致');
 }); 

@@ -228,34 +228,28 @@ class ImageProcessor {
     }
     
     /**
-     * 预处理边缘点：排序 + 压缩
+     * 稀疏化边缘点：排序 + 压缩 + 闭合处理
      * @param {Array<{x: number, y: number}>} points - 原始边缘点
-     * @param {Object} options - 处理选项
-     * @param {boolean} options.enableSort - 是否启用排序，默认true
-     * @param {boolean} options.enableCompress - 是否启用压缩，默认true
+     * @param {Object} options - 稀疏化选项
      * @param {number} options.tolerance - 道格拉斯-普克算法容差，默认2.0
-     * @returns {Array<{x: number, y: number}>} 处理后的点数组
+     * @returns {Array<{x: number, y: number}>} 稀疏化后的点数组
      */
-    preprocessEdgePoints(points, options = {}) {
+    sparsifyEdgePoints(points, options = {}) {
         const {
-            enableSort = true,
-            enableCompress = true,
             tolerance = 2.0
         } = options;
         
-        if (points.length === 0) return points;
+        if (points.length === 0) {
+            throw new Error('无法稀疏化空的边缘点数组');
+        }
         
         let processedPoints = points;
         
-        // 第一步：路径排序
-        if (enableSort) {
-            processedPoints = this.sortPointsToPath(processedPoints);
-        }
+        // 第一步：路径排序（总是执行）
+        processedPoints = this.sortPointsToPath(processedPoints);
         
-        // 第二步：道格拉斯-普克压缩
-        if (enableCompress) {
-            processedPoints = this.douglasPeucker(processedPoints, tolerance);
-        }
+        // 第二步：道格拉斯-普克压缩（总是执行）
+        processedPoints = this.douglasPeucker(processedPoints, tolerance);
         
         // 第三步：检查并处理首尾点合并（如果是闭合轮廓）
         if (processedPoints.length > 2) {
@@ -407,20 +401,13 @@ class ImageProcessor {
     
     /**
      * 从最右侧的点切分成两条线
-     * @param {Array<{x: number, y: number}>} processedPoints - 预处理后的点数组
-     * @returns {Object} {firstArray: Array, secondArray: Array, maxXIndex: number, stats: Object}
+     * @param {Array<{x: number, y: number}>} processedPoints - 稀疏化后的点数组
+     * @returns {Object} {firstArray: Array, secondArray: Array}
      */
     splitPointsAtRightmost(processedPoints) {
         if (!processedPoints || processedPoints.length === 0) {
-            return {
-                firstArray: [],
-                secondArray: [],
-                maxXIndex: -1,
-                stats: { originalPointsCount: 0, firstArrayCount: 0, secondArrayCount: 0 }
-            };
+            throw new Error('无法切分空的点数组');
         }
-        
-
         
         // 找到x值最大的点
         let maxXIndex = 0;
@@ -439,36 +426,27 @@ class ImageProcessor {
         
         const result = {
             firstArray: firstArray,
-            secondArray: secondArray,
-            maxXIndex: maxXIndex,
-            stats: {
-                originalPointsCount: processedPoints.length,
-                firstArrayCount: firstArray.length,
-                secondArrayCount: secondArray.length,
-                maxX: maxX
-            }
+            secondArray: secondArray
         };
         
-        console.log(`✅ 切分完成！切分为 ${result.stats.firstArrayCount} + ${result.stats.secondArrayCount} 个点`);
+        console.log(`✅ 切分完成！切分为 ${firstArray.length} + ${secondArray.length} 个点`);
         
         return result;
     }
     
     /**
-     * 绘制切分后的两条线
-     * @param {Object} splitResult - splitPointsAtRightmost 的返回值
+     * 绘制单条线
+     * @param {Array<{x: number, y: number}>} points - 点数组
      * @param {Object} options - 绘制选项
-     * @param {string} options.firstLineColor - 第一条线的颜色（默认蓝色）
-     * @param {string} options.secondLineColor - 第二条线的颜色（默认红色）
+     * @param {string} options.color - 线条颜色（默认蓝色）
      * @param {number} options.lineWidth - 线条宽度（默认1）
      * @param {number} options.pointRadius - 点的半径（默认2）
      * @param {boolean} options.drawPoints - 是否绘制点（默认true）
      * @param {boolean} options.drawLines - 是否绘制连线（默认true）
      */
-    drawSplitLines(splitResult, options = {}) {
+    drawSplitLines(points, options = {}) {
         const defaultOptions = {
-            firstLineColor: '#007bff',   // 蓝色
-            secondLineColor: '#ff0000',  // 红色
+            color: '#007bff',   // 蓝色
             lineWidth: 1,
             pointRadius: 2,
             drawPoints: true,
@@ -477,68 +455,62 @@ class ImageProcessor {
         
         const finalOptions = { ...defaultOptions, ...options };
         
-        if (splitResult.firstArray.length === 0 && splitResult.secondArray.length === 0) {
+        if (!points || points.length === 0) {
             console.warn('没有可绘制的线段');
             return;
         }
         
-        // 绘制第一条线
-        if (splitResult.firstArray.length > 0) {
-            this.drawContour(splitResult.firstArray, {
-                color: finalOptions.firstLineColor,
-                lineColor: finalOptions.firstLineColor,
-                radius: finalOptions.pointRadius,
-                drawLines: finalOptions.drawLines,
-                lineWidth: finalOptions.lineWidth,
-                drawPoints: finalOptions.drawPoints
-            });
-        }
+        // 绘制单条线
+        this.drawContour(points, {
+            color: finalOptions.color,
+            lineColor: finalOptions.color,
+            radius: finalOptions.pointRadius,
+            drawLines: finalOptions.drawLines,
+            lineWidth: finalOptions.lineWidth,
+            drawPoints: finalOptions.drawPoints
+        });
         
-        // 绘制第二条线
-        if (splitResult.secondArray.length > 0) {
-            this.drawContour(splitResult.secondArray, {
-                color: finalOptions.secondLineColor,
-                lineColor: finalOptions.secondLineColor,
-                radius: finalOptions.pointRadius,
-                drawLines: finalOptions.drawLines,
-                lineWidth: finalOptions.lineWidth,
-                drawPoints: finalOptions.drawPoints
-            });
-        }
-        
-        console.log(`✅ 切分线段绘制完成！`);
+        console.log(`✅ 线段绘制完成！`);
     }
     
     /**
-     * 完整的处理流程：预处理 -> 切分 -> 绘制
+     * 完整的处理流程：稀疏化 -> 切分 -> 绘制
      * @param {Array<{x: number, y: number}>} rawPoints - 原始边缘点
-     * @param {Object} processConfig - 预处理配置（可选）
+     * @param {Object} processConfig - 稀疏化配置（可选）
      * @param {Object} drawOptions - 绘制选项（可选）
      * @returns {Object} 切分结果
      */
     processAndSplitPoints(rawPoints, processConfig = null, drawOptions = null) {
         if (!rawPoints || rawPoints.length === 0) {
-            console.warn('没有输入点进行处理');
-            return null;
+            throw new Error('无法处理空的原始点数组');
         }
         
 
         
-        // 第一步：预处理
+        // 第一步：稀疏化
         const defaultProcessConfig = {
-            enableSort: true,
-            enableCompress: true,
             tolerance: 2.0
         };
         const config = { ...defaultProcessConfig, ...processConfig };
-        const processedPoints = this.preprocessEdgePoints(rawPoints, config);
+        const processedPoints = this.sparsifyEdgePoints(rawPoints, config);
         
         // 第二步：切分
         const splitResult = this.splitPointsAtRightmost(processedPoints);
         
         // 第三步：绘制
         if (drawOptions !== false) { // 如果 drawOptions 不是 false，则绘制
-            this.drawSplitLines(splitResult, drawOptions);
+            // 绘制第一条线
+            if (splitResult.firstArray.length > 0) {
+                this.drawSplitLines(splitResult.firstArray, drawOptions);
+            }
+            
+            // 绘制第二条线
+            if (splitResult.secondArray.length > 0) {
+                this.drawSplitLines(splitResult.secondArray, {
+                    ...drawOptions,
+                    color: '#ff0000'  // 第二条线使用红色
+                });
+            }
         }
         
         return splitResult;
@@ -910,7 +882,7 @@ class ImageProcessor {
       */
      calculateBounds(points) {
          if (points.length === 0) {
-             return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
+             throw new Error('无法计算空点数组的边界');
          }
          
          let minX = points[0].x;
