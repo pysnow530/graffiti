@@ -219,7 +219,7 @@ class Model3DProcessor {
         this.mouseX = 0;
         this.mouseY = 0;
         
-        console.log('🎭 3D模型处理器已初始化');
+
     }
     
     /**
@@ -271,7 +271,7 @@ class Model3DProcessor {
         // 开始渲染循环
         this.animate();
         
-        console.log('✅ 3D场景初始化完成');
+
         return true;
     }
     
@@ -357,9 +357,7 @@ class Model3DProcessor {
             return false;
         }
         
-        console.log('🔄 开始生成3D模型...');
-        console.log('网格数据:', gridData);
-        console.log('厚度数据:', thicknessData);
+
         
         // 清除旧模型
         if (this.mesh) {
@@ -390,7 +388,7 @@ class Model3DProcessor {
         // 调整相机位置以适应模型
         this.fitCameraToModel();
         
-        console.log('✅ 3D模型生成完成');
+
         return true;
     }
     
@@ -551,7 +549,7 @@ class Model3DProcessor {
         this.camera.position.set(distance, distance, distance);
         this.camera.lookAt(center);
         
-        console.log('📸 相机位置已调整以适应模型');
+
     }
     
     /**
@@ -585,7 +583,7 @@ class Model3DProcessor {
             this.container.innerHTML = '';
         }
         
-        console.log('🗑️ 3D场景已销毁');
+
     }
     
     /**
@@ -598,7 +596,7 @@ class Model3DProcessor {
         }
         
         // 这里可以添加导出功能，比如导出为STL或OBJ格式
-        console.log('📤 3D模型导出功能待实现');
+
         
         // 简单的截图功能
         const canvas = this.renderer.domElement;

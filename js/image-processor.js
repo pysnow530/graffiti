@@ -108,9 +108,6 @@ class ImageProcessor {
     sortPointsToPath(points) {
         if (points.length <= 2) return points;
         
-        console.log(`🔄 开始路径排序，原始点数: ${points.length}`);
-        const startTime = performance.now();
-        
         // 复制点数组避免修改原数组
         const availablePoints = [...points];
         const sortedPath = [];
@@ -148,9 +145,6 @@ class ImageProcessor {
             currentIndex = nearestIndex;
         }
         
-        const sortTime = performance.now() - startTime;
-        console.log(`📏 路径排序完成，耗时: ${sortTime.toFixed(2)}ms`);
-        
         return sortedPath;
     }
     
@@ -163,17 +157,7 @@ class ImageProcessor {
     douglasPeucker(points, tolerance = 2.0) {
         if (points.length <= 2) return points;
         
-        console.log(`🗜️ 开始道格拉斯-普克压缩，原始点数: ${points.length}，容差: ${tolerance}`);
-        const startTime = performance.now();
-        
-        const result = this.douglasPeuckerRecursive(points, tolerance);
-        
-        const compressTime = performance.now() - startTime;
-        const compressionRate = ((points.length - result.length) / points.length * 100).toFixed(1);
-        
-        console.log(`🗜️ 压缩完成，压缩后点数: ${result.length}，压缩率: ${compressionRate}%，耗时: ${compressTime.toFixed(2)}ms`);
-        
-        return result;
+        return this.douglasPeuckerRecursive(points, tolerance);
     }
     
     /**
@@ -261,9 +245,6 @@ class ImageProcessor {
         
         if (points.length === 0) return points;
         
-        console.log(`🎯 开始边缘点预处理，原始点数: ${points.length}`);
-        const totalStartTime = performance.now();
-        
         let processedPoints = points;
         
         // 第一步：路径排序
@@ -285,17 +266,8 @@ class ImageProcessor {
             const distance = this.getDistance(firstPoint, lastPoint);
             if (distance <= tolerance) {
                 processedPoints = processedPoints.slice(0, -1);
-                console.log(`🔄 检测到闭合轮廓，移除重复的末尾点`);
             }
         }
-        
-        const totalTime = performance.now() - totalStartTime;
-        const reductionRate = ((points.length - processedPoints.length) / points.length * 100).toFixed(1);
-        
-        console.log(`✅ 边缘点预处理完成！`);
-        console.log(`📊 处理结果: ${points.length} → ${processedPoints.length} 个点 (减少${reductionRate}%)`);
-        console.log(`📊 总耗时: ${totalTime.toFixed(2)}ms`);
-        console.log('='.repeat(50));
         
         return processedPoints;
     }
@@ -448,8 +420,7 @@ class ImageProcessor {
             };
         }
         
-        console.log(`✂️ 开始从最右侧点切分，输入点数: ${processedPoints.length}`);
-        const startTime = performance.now();
+
         
         // 找到x值最大的点
         let maxXIndex = 0;
@@ -466,8 +437,6 @@ class ImageProcessor {
         const firstArray = processedPoints.slice(0, maxXIndex + 1);
         const secondArray = [firstArray[0], ...processedPoints.slice(maxXIndex).reverse()];
         
-        const processingTime = performance.now() - startTime;
-        
         const result = {
             firstArray: firstArray,
             secondArray: secondArray,
@@ -476,17 +445,11 @@ class ImageProcessor {
                 originalPointsCount: processedPoints.length,
                 firstArrayCount: firstArray.length,
                 secondArrayCount: secondArray.length,
-                processingTime: processingTime,
                 maxX: maxX
             }
         };
         
-        console.log(`✅ 切分完成！`);
-        console.log(`📊 原始点数: ${result.stats.originalPointsCount}`);
-        console.log(`📊 第一个数组: ${result.stats.firstArrayCount} 个点`);
-        console.log(`📊 第二个数组: ${result.stats.secondArrayCount} 个点`);
-        console.log(`📊 最大x值: ${maxX}, 索引: ${maxXIndex}`);
-        console.log(`📊 处理耗时: ${processingTime.toFixed(2)}ms`);
+        console.log(`✅ 切分完成！切分为 ${result.stats.firstArrayCount} + ${result.stats.secondArrayCount} 个点`);
         
         return result;
     }
@@ -519,8 +482,6 @@ class ImageProcessor {
             return;
         }
         
-        console.log(`🎨 开始绘制切分后的线段...`);
-        
         // 绘制第一条线
         if (splitResult.firstArray.length > 0) {
             this.drawContour(splitResult.firstArray, {
@@ -531,7 +492,6 @@ class ImageProcessor {
                 lineWidth: finalOptions.lineWidth,
                 drawPoints: finalOptions.drawPoints
             });
-            console.log(`📏 第一条线已绘制: ${splitResult.firstArray.length} 个点，颜色: ${finalOptions.firstLineColor}`);
         }
         
         // 绘制第二条线
@@ -544,7 +504,6 @@ class ImageProcessor {
                 lineWidth: finalOptions.lineWidth,
                 drawPoints: finalOptions.drawPoints
             });
-            console.log(`📏 第二条线已绘制: ${splitResult.secondArray.length} 个点，颜色: ${finalOptions.secondLineColor}`);
         }
         
         console.log(`✅ 切分线段绘制完成！`);
@@ -563,7 +522,7 @@ class ImageProcessor {
             return null;
         }
         
-        console.log(`🔧 开始完整处理流程，原始点数: ${rawPoints.length}`);
+
         
         // 第一步：预处理
         const defaultProcessConfig = {
@@ -625,7 +584,7 @@ class ImageProcessor {
                          }
          }
          
-         console.log(`🔗 生成网格数据完成，共 ${virticalGroups.length} 组连接点`);
+ 
          return virticalGroups;
      }
     
@@ -662,7 +621,7 @@ class ImageProcessor {
         const finalOptions = { ...defaultOptions, ...options };
         finalOptions.gridPointColor = finalOptions.gridPointColor || finalOptions.gridColor;
         
-        console.log(`🎯 开始绘制网格，共 ${gridData.length} 条连线`);
+
         
         // 保存当前绘图状态
         const originalStrokeStyle = this.ctx.strokeStyle;
@@ -726,7 +685,7 @@ class ImageProcessor {
                     }
                 }
             }
-            console.log(`📍 绘制了 ${drawnPoints} 个网格点`);
+    
         }
         
         // 恢复原始绘图状态
@@ -735,7 +694,7 @@ class ImageProcessor {
         this.ctx.lineWidth = originalLineWidth;
         this.ctx.lineCap = originalLineCap;
         
-        console.log(`✅ 网格绘制完成！绘制了 ${drawnLines} 条垂直连线，颜色: ${finalOptions.gridColor}`);
+        console.log(`✅ 网格绘制完成！绘制了 ${drawnLines} 条垂直连线`);
     }
     
     /**
@@ -749,7 +708,7 @@ class ImageProcessor {
             return;
         }
         
-        console.log(`🔷 开始绘制6等分网格`);
+
         
         // 设置等分线样式（使用与主网格相同的颜色）
         this.ctx.strokeStyle = options.gridColor;
@@ -772,7 +731,7 @@ class ImageProcessor {
             }
         }
         
-        console.log(`📐 计算了 ${subdivisionPoints.length} 组等分点，每组 ${subdivisionPoints[0] ? subdivisionPoints[0].length : 0} 个点`);
+
         
         // 绘制相邻组之间的水平连线
         let horizontalLines = 0;
@@ -799,7 +758,7 @@ class ImageProcessor {
             }
         }
         
-        console.log(`🔗 绘制了 ${horizontalLines} 条水平等分连线`);
+
     }
     
     /**
@@ -907,7 +866,7 @@ class ImageProcessor {
              return null;
          }
          
-         console.log(`📏 开始计算封闭图形厚度，使用 ${finalOptions.thicknessFunction} 函数`);
+ 
          
          // 确保轮廓是封闭的
          const closedContour = this.ensureClosedContour(contour);
@@ -918,7 +877,7 @@ class ImageProcessor {
          // 根据厚度函数计算填充区域
          const thicknessData = this.calculateRegionThickness(closedContour, bounds, finalOptions);
          
-         console.log(`✅ 封闭图形厚度计算完成`);
+ 
          return thicknessData;
      }
      
@@ -1030,7 +989,7 @@ class ImageProcessor {
              return;
          }
          
-         console.log(`🎨 开始绘制带厚度的封闭图形，使用 ${finalOptions.thicknessVisualization} 效果`);
+ 
          
          // 保存绘图状态
          const originalFillStyle = this.ctx.fillStyle;
@@ -1057,7 +1016,7 @@ class ImageProcessor {
          this.ctx.strokeStyle = originalStrokeStyle;
          this.ctx.lineWidth = originalLineWidth;
          
-         console.log(`✅ 封闭图形厚度绘制完成，使用 ${finalOptions.thicknessVisualization} 方式`);
+ 
      }
      
      /**
@@ -1204,7 +1163,7 @@ class ImageProcessor {
       * @returns {Object} 厚度数据
       */
      processAndDrawThickContour(contour, thicknessOptions = {}, drawOptions = {}) {
-         console.log(`🔄 开始处理带厚度的封闭图形，输入 ${contour.length} 个点`);
+ 
          
          // 1. 计算厚度数据
          const thicknessData = this.calculateContourThickness(contour, thicknessOptions);
@@ -1214,7 +1173,7 @@ class ImageProcessor {
              this.drawThickContour(thicknessData, drawOptions);
          }
          
-         console.log(`✅ 厚度图形处理完成`);
+ 
          return thicknessData;
      }
 }

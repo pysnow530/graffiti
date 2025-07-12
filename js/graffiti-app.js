@@ -66,7 +66,7 @@ class GraffitiApp {
      */
     initializeApp() {
         this.bindUIEvents();
-        console.log('🎨 Canvas 涂鸦板已初始化完成！');
+
     }
     
     /**
@@ -293,13 +293,10 @@ class GraffitiApp {
                 );
                 processTime = performance.now() - processStartTime;
                 
-                console.log(`🔧 边缘点预处理耗时: ${processTime.toFixed(2)}ms`);
-                
                 // 切分成两条线
                 if (processedPoints.length > 0) {
                     splitResult = this.imageProcessor.splitPointsAtRightmost(processedPoints);
                     gridData = this.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray, this.edgeDrawConfig.tolerance);
-                    console.log('网格数据:', gridData);
                     
                     // 保存网格数据供3D生成使用
                     this.latestGridData = gridData;
@@ -311,7 +308,6 @@ class GraffitiApp {
                             maxThickness: this.thicknessConfig.maxThickness,
                             minThickness: this.thicknessConfig.minThickness
                         });
-                        console.log('厚度轮廓数据:', thickContour);
                         
                         // 保存厚度数据供3D生成使用
                         this.latestThicknessData = thickContour;
@@ -363,65 +359,20 @@ class GraffitiApp {
                 }
                 
                 drawTime = performance.now() - drawStartTime;
-                
-                console.log(`🎨 绘制边缘轮廓耗时: ${drawTime.toFixed(2)}ms`);
             }
             
-            // 生成统计信息
-            const stats = {
-                originalPointsCount: edgePoints.length,
-                processedPointsCount: processedPoints.length,
-                compressionRate: ((edgePoints.length - processedPoints.length) / edgePoints.length * 100).toFixed(1),
-                processTime: processTime,
-                drawTime: drawTime,
-                edgePointsCount: edgePoints.length
-            };
-            
-            // 添加切分统计信息
-            if (splitResult) {
-                stats.splitResult = {
-                    firstArrayCount: splitResult.firstArray.length,
-                    secondArrayCount: splitResult.secondArray.length,
-                    maxXIndex: splitResult.maxXIndex
-                };
-            }
-            
-            // 添加网格统计信息
-            if (gridData) {
-                stats.gridData = {
-                    connectionCount: gridData.length,
-                    tolerance: this.edgeDrawConfig.tolerance,
-                    subdivisionEnabled: this.edgeDrawConfig.drawSubdivisions,
-                    estimatedSubdivisionLines: this.edgeDrawConfig.drawSubdivisions ? (gridData.length - 1) * 7 : 0
-                };
-            }
-            
-            // 添加厚度轮廓统计信息
-            if (thickContour) {
-                stats.thickContour = {
-                    pointCount: thickContour.length,
-                    thicknessFunction: this.thicknessConfig.thicknessFunction,
-                    maxThickness: this.thicknessConfig.maxThickness,
-                    minThickness: this.thicknessConfig.minThickness,
-                    visualization: this.thicknessConfig.thicknessVisualization
-                };
-            }
-            
-            console.log(`📊 包含预处理和绘制的总耗时: ${(processTime + drawTime).toFixed(2)}ms`);
-            
-            // 构建通知消息
+            // 构建总结性通知消息
             const processInfo = (this.edgeProcessConfig.enableSort || this.edgeProcessConfig.enableCompress) ? 
-                `，预处理后 ${processedPoints.length} 个点 (压缩${stats.compressionRate}%)` : '';
-            const splitInfo = stats.splitResult ? 
-                `，切分为两条线 (${stats.splitResult.firstArrayCount}+${stats.splitResult.secondArrayCount}个点)` : '';
+                `，预处理后 ${processedPoints.length} 个点` : '';
+            const splitInfo = splitResult ? 
+                `，切分为两条线` : '';
             const gridInfo = gridData ? 
-                `，生成 ${gridData.length} 组网格连接${this.edgeDrawConfig.drawSubdivisions ? '（含6等分）' : ''}` : '';
+                `，生成 ${gridData.length} 组网格连接` : '';
             const thicknessInfo = thickContour ? 
-                `，生成封闭图形厚度（${this.thicknessConfig.thicknessFunction}形状）` : '';
+                `，生成封闭图形厚度` : '';
             const drawInfo = this.edgeDrawConfig.enabled ? 
-                `，绘制耗时 ${drawTime.toFixed(0)}ms` : 
-                '（未绘制）';
-            const message = `边缘检测完成！检测到 ${stats.edgePointsCount} 个边缘点${processInfo}${splitInfo}${gridInfo}${thicknessInfo}${drawInfo}`;
+                `，已绘制` : '';
+            const message = `边缘检测完成！检测到 ${edgePoints.length} 个边缘点${processInfo}${splitInfo}${gridInfo}${thicknessInfo}${drawInfo}`;
             this.showNotification(message, 'success');
             
         } catch (error) {
@@ -479,8 +430,6 @@ class GraffitiApp {
      * 创建一些测试数据并绘制6等分网格
      */
     testSubdivisionGrid() {
-        console.log('🧪 开始测试6等分网格功能');
-        
         // 创建测试数据：4个垂直连接
         const testGridData = [
             [{x: 100, y: 100}, {x: 100, y: 200}],  // 第一条垂直线
@@ -504,11 +453,8 @@ class GraffitiApp {
             gridPointColor: '#ff0000'      // 红色网格点
         });
         
-        console.log('✅ 6等分网格测试完成');
-        console.log('📊 测试数据：4组垂直连接，每组6等分，预期产生21条水平连线（与垂直线颜色一致）');
-        
         // 显示测试结果通知
-        this.showNotification('6等分网格测试完成！统一颜色网格效果', 'success');
+        this.showNotification('6等分网格测试完成！', 'success');
     }
     
     /**
@@ -516,8 +462,6 @@ class GraffitiApp {
      * 创建测试数据并展示不同的厚度函数效果
      */
     testThicknessContour() {
-        console.log('🧪 开始测试封闭图形厚度功能');
-        
         // 创建测试轮廓数据：一条曲线
         const testContour = [];
         for (let i = 0; i <= 20; i++) {
@@ -540,8 +484,6 @@ class GraffitiApp {
                 y: point.y + i * 80 // 垂直偏移，避免重叠
             }));
             
-            console.log(`🎨 测试 ${thicknessFunctions[i]} 厚度函数`);
-            
             this.imageProcessor.processAndDrawThickContour(
                 offsetContour,
                 {
@@ -560,11 +502,8 @@ class GraffitiApp {
             );
         }
         
-        console.log('✅ 封闭图形厚度测试完成');
-        console.log('📊 测试了4种厚度函数：鱼形、椭圆形、纺锤形、叶子形');
-        
         // 显示测试结果通知
-        this.showNotification('封闭图形厚度测试完成！展示4种不同的厚度函数效果', 'success');
+        this.showNotification('封闭图形厚度测试完成！', 'success');
     }
     
     /**
@@ -621,8 +560,6 @@ class GraffitiApp {
      * 测试3D模型生成
      */
     test3DGeneration() {
-        console.log('🧪 开始测试3D模型生成功能');
-        
         // 创建测试网格数据
         const testGridData = [
             [{x: 100, y: 100}, {x: 100, y: 200}],
@@ -650,8 +587,6 @@ class GraffitiApp {
         
         // 生成3D模型
         this.handle3DGeneration();
-        
-        console.log('✅ 3D模型测试完成');
     }
 
     /**
