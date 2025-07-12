@@ -517,13 +517,13 @@ class ImageProcessor {
     }
 
     /**
-     * 根据两个数组生成网格数据
+     * 根据两个数组生成垂线列表，并在首尾添加端点
      * @param {Array<{x: number, y: number}>} arr1 - 第一个数组
      * @param {Array<{x: number, y: number}>} arr2 - 第二个数组
      * @param {number} tolerance - 容差
-     * @returns {Array<Array<{x: number, y: number}>>} 网格数据
+     * @returns {Array<Array<{x: number, y: number}>>} 垂线列表，包含首尾端点
      */
-    generateGridData(arr1, arr2, tolerance = 10) {
+    generateVerticalLines(arr1, arr2, tolerance = 10) {
         const virticalGroups = [];
         
         let idx1 = 1;
@@ -556,26 +556,34 @@ class ImageProcessor {
                          }
          }
          
- 
+         // 在首尾添加两组点
+         if (arr1.length > 0 && arr2.length > 0) {
+             // 第一组：最左侧的点 [arr1[0], arr2[0]]
+             virticalGroups.unshift([arr1[0], arr2[0]]);
+             
+             // 第二组：最右侧的点 [arr1[arr1.length-1], arr2[arr2.length-1]]
+             virticalGroups.push([arr1[arr1.length-1], arr2[arr2.length-1]]);
+         }
+         
          return virticalGroups;
      }
     
     /**
-     * 绘制网格连线
-     * @param {Array<Array<{x: number, y: number}>>} gridData - 网格数据，每个元素包含两个点
+     * 绘制垂线列表
+     * @param {Array<Array<{x: number, y: number}>>} verticalLines - 垂线列表，每个元素包含两个点
      * @param {Object} options - 绘制配置
-     * @param {string} options.gridColor - 网格线颜色（默认绿色）
-     * @param {number} options.gridLineWidth - 网格线宽度（默认1）
-     * @param {boolean} options.drawGridPoints - 是否绘制网格点（默认false）
-     * @param {number} options.gridPointRadius - 网格点半径（默认2）
-     * @param {string} options.gridPointColor - 网格点颜色（默认与网格线相同）
-     * @param {boolean} options.drawSubdivisions - 是否绘制6等分网格（默认true）
-     * @param {string} options.subdivisionColor - 等分线颜色（默认与主网格相同）
+     * @param {string} options.gridColor - 垂线颜色（默认绿色）
+     * @param {number} options.gridLineWidth - 垂线宽度（默认1）
+     * @param {boolean} options.drawGridPoints - 是否绘制垂线端点（默认false）
+     * @param {number} options.gridPointRadius - 端点半径（默认2）
+     * @param {string} options.gridPointColor - 端点颜色（默认与垂线相同）
+     * @param {boolean} options.drawSubdivisions - 是否绘制6等分线（默认true）
+     * @param {string} options.subdivisionColor - 等分线颜色（默认与主垂线相同）
      * @param {number} options.subdivisionLineWidth - 等分线宽度（默认1）
      */
-    drawGrid(gridData, options = {}) {
-        if (!gridData || gridData.length === 0) {
-            console.warn('没有网格数据可以绘制');
+    drawVerticalLines(verticalLines, options = {}) {
+        if (!verticalLines || verticalLines.length === 0) {
+            console.warn('没有垂线数据可以绘制');
             return;
         }
         
@@ -606,9 +614,9 @@ class ImageProcessor {
         this.ctx.lineWidth = finalOptions.gridLineWidth;
         this.ctx.lineCap = 'round';
         
-        // 绘制主要的垂直连线
+        // 绘制主要的垂线
         let drawnLines = 0;
-        for (const pointPair of gridData) {
+        for (const pointPair of verticalLines) {
             if (pointPair && pointPair.length === 2) {
                 const [point1, point2] = pointPair;
                 
@@ -625,18 +633,18 @@ class ImageProcessor {
             }
         }
         
-        // 绘制6等分网格
+        // 绘制6等分线
         if (finalOptions.drawSubdivisions) {
-            this.drawSubdivisionGrid(gridData, finalOptions);
+            this.drawSubdivisionLines(verticalLines, finalOptions);
         }
         
-        // 绘制网格点（如果启用）
+        // 绘制垂线端点（如果启用）
         if (finalOptions.drawGridPoints) {
             this.ctx.fillStyle = finalOptions.gridPointColor;
             this.ctx.strokeStyle = finalOptions.gridPointColor;
             
             let drawnPoints = 0;
-            for (const pointPair of gridData) {
+            for (const pointPair of verticalLines) {
                 if (pointPair && pointPair.length === 2) {
                     const [point1, point2] = pointPair;
                     
@@ -666,17 +674,17 @@ class ImageProcessor {
         this.ctx.lineWidth = originalLineWidth;
         this.ctx.lineCap = originalLineCap;
         
-        console.log(`✅ 网格绘制完成！绘制了 ${drawnLines} 条垂直连线`);
+        console.log(`✅ 垂线绘制完成！绘制了 ${drawnLines} 条垂线`);
     }
     
     /**
-     * 绘制6等分细分网格
-     * @param {Array<Array<{x: number, y: number}>>} gridData - 网格数据
+     * 绘制6等分细分线
+     * @param {Array<Array<{x: number, y: number}>>} verticalLines - 垂线列表
      * @param {Object} options - 绘制配置
      */
-    drawSubdivisionGrid(gridData, options) {
-        if (!gridData || gridData.length < 2) {
-            console.warn('需要至少2组数据才能绘制等分网格');
+    drawSubdivisionLines(verticalLines, options) {
+        if (!verticalLines || verticalLines.length < 2) {
+            console.warn('需要至少2组数据才能绘制等分线');
             return;
         }
         
@@ -688,8 +696,8 @@ class ImageProcessor {
         
         // 计算每组的6等分点
         const subdivisionPoints = [];
-        for (let i = 0; i < gridData.length; i++) {
-            const pointPair = gridData[i];
+        for (let i = 0; i < verticalLines.length; i++) {
+            const pointPair = verticalLines[i];
             if (pointPair && pointPair.length === 2) {
                 const [point1, point2] = pointPair;
                 

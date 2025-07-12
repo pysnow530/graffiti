@@ -13,8 +13,7 @@ class GraffitiApp {
         this.edgeDetection = new EdgeDetectionAlgorithm(this.imageProcessor);
         this.model3D = new Model3DProcessor();
         
-        // 存储最新的网格数据和厚度数据
-        this.latestGridData = null;
+        // 存储最新的厚度数据
         this.latestThicknessData = null;
         
         // 边缘绘制配置
@@ -263,6 +262,31 @@ class GraffitiApp {
     }
     
     /**
+     * 私有方法：从边缘点生成垂线数据
+     * @returns {Array} 垂线数据数组
+     */
+    _generateVerticalLinesFromEdges() {
+        // 执行边缘检测（直接返回结果）
+        const edgePoints = this.edgeDetection.detectEdges();
+        
+        // 稀疏化边缘点：排序 + 压缩（默认都执行）
+        const processedPoints = this.imageProcessor.sparsifyEdgePoints(
+            edgePoints, 
+            this.edgeProcessConfig
+        );
+        
+        // 切分成两条线
+        if (edgePoints.length === 0) {
+            throw new Error('边缘点数组为空，无法进行后续处理');
+        }
+
+        const splitResult = this.imageProcessor.splitPointsAtRightmost(processedPoints);
+        const verticalLines = this.imageProcessor.generateVerticalLines(splitResult.firstArray, splitResult.secondArray, this.edgeDrawConfig.tolerance);
+
+        return verticalLines;
+    }
+
+    /**
      * 处理边缘检测
      * 负责协调边缘检测算法执行和结果绘制
      */
@@ -271,49 +295,29 @@ class GraffitiApp {
             // 显示开始通知
             this.showNotification('开始边缘检测...', 'info');
             
-            // 执行边缘检测（直接返回结果）
-            const edgePoints = this.edgeDetection.detectEdges();
+            // 生成垂线数据
+            const verticalLines = this._generateVerticalLinesFromEdges();
             
-            // 处理边缘检测结果
-            let processedPoints;
-            let firstArray = [];
-            let secondArray = [];
-            let gridData = null;
-            let thickContour = null;
-            
-            // 稀疏化边缘点：排序 + 压缩（默认都执行）
-            processedPoints = this.imageProcessor.sparsifyEdgePoints(
-                edgePoints, 
-                this.edgeProcessConfig
-            );
-            
-            // 切分成两条线
-            if (edgePoints.length === 0) {
-                throw new Error('边缘点数组为空，无法进行后续处理');
-            }
-
-            const splitResult = this.imageProcessor.splitPointsAtRightmost(processedPoints);
-            firstArray = splitResult.firstArray;
-            secondArray = splitResult.secondArray;
-            gridData = this.imageProcessor.generateGridData(firstArray, secondArray, this.edgeDrawConfig.tolerance);
-
-            // 保存网格数据供3D生成使用
-            this.latestGridData = gridData;
-
-            // 生成厚度轮廓数据
-            if (this.thicknessConfig.enabled) {
-                thickContour = this.imageProcessor.calculateContourThickness(processedPoints, {
-                    thicknessFunction: this.thicknessConfig.thicknessFunction,
-                    maxThickness: this.thicknessConfig.maxThickness,
-                    minThickness: this.thicknessConfig.minThickness
-                });
-
-                // 保存厚度数据供3D生成使用
-                this.latestThicknessData = thickContour;
-            }
-            
-            // 根据配置决定是否绘制边缘点
+            // 如果需要绘制，重新获取相关数据
             if (this.edgeDrawConfig.enabled) {
+                // 重新执行边缘检测和处理（为了绘制）
+                const edgePoints = this.edgeDetection.detectEdges();
+                const processedPoints = this.imageProcessor.sparsifyEdgePoints(edgePoints, this.edgeProcessConfig);
+                const splitResult = this.imageProcessor.splitPointsAtRightmost(processedPoints);
+                const { firstArray, secondArray } = splitResult;
+                
+                // 处理厚度轮廓
+                let thickContour = null;
+                if (this.thicknessConfig.enabled) {
+                    thickContour = this.imageProcessor.calculateContourThickness(processedPoints, {
+                        thicknessFunction: this.thicknessConfig.thicknessFunction,
+                        maxThickness: this.thicknessConfig.maxThickness,
+                        minThickness: this.thicknessConfig.minThickness
+                    });
+                    // 保存厚度数据供3D生成使用
+                    this.latestThicknessData = thickContour;
+                }
+                
                 if ((firstArray.length > 0 || secondArray.length > 0)) {
                     // 绘制第一条线
                     if (firstArray.length > 0) {
@@ -337,8 +341,8 @@ class GraffitiApp {
                         });
                     }
 
-                    if (gridData) {
-                        this.imageProcessor.drawGrid(gridData, {
+                    if (verticalLines) {
+                        this.imageProcessor.drawVerticalLines(verticalLines, {
                             gridColor: this.edgeDrawConfig.gridColor,
                             gridLineWidth: this.edgeDrawConfig.gridLineWidth,
                             drawGridPoints: this.edgeDrawConfig.drawGridPoints,
@@ -364,20 +368,19 @@ class GraffitiApp {
                     // 如果没有切分结果，使用原始方式绘制
                     this.imageProcessor.drawContour(processedPoints, this.edgeDrawConfig);
                 }
+                
+                // 构建总结性通知消息
+                const gridInfo = verticalLines ? 
+                    `，生成 ${verticalLines.length} 组垂线连接` : '';
+                const thicknessInfo = thickContour ? 
+                    `，生成封闭图形厚度` : '';
+                const message = `边缘检测完成！检测到 ${edgePoints.length} 个边缘点，稀疏化后 ${processedPoints.length} 个点，切分为两条线${gridInfo}${thicknessInfo}，已绘制`;
+                this.showNotification(message, 'success');
+            } else {
+                // 不绘制时的简化通知
+                const message = `边缘检测完成！生成 ${verticalLines.length} 组垂线连接`;
+                this.showNotification(message, 'success');
             }
-            
-            // 构建总结性通知消息
-            const processInfo = `，稀疏化后 ${processedPoints.length} 个点`;
-            const splitInfo = (firstArray.length > 0 || secondArray.length > 0) ? 
-                `，切分为两条线` : '';
-            const gridInfo = gridData ? 
-                `，生成 ${gridData.length} 组网格连接` : '';
-            const thicknessInfo = thickContour ? 
-                `，生成封闭图形厚度` : '';
-            const drawInfo = this.edgeDrawConfig.enabled ? 
-                `，已绘制` : '';
-            const message = `边缘检测完成！检测到 ${edgePoints.length} 个边缘点${processInfo}${splitInfo}${gridInfo}${thicknessInfo}${drawInfo}`;
-            this.showNotification(message, 'success');
             
         } catch (error) {
             console.error('边缘检测错误:', error);
@@ -428,12 +431,12 @@ class GraffitiApp {
     }
     
     /**
-     * 测试6等分网格功能
-     * 创建一些测试数据并绘制6等分网格
+     * 测试6等分垂线功能
+     * 创建一些测试数据并绘制6等分垂线
      */
     testSubdivisionGrid() {
         // 创建测试数据：4个垂直连接
-        const testGridData = [
+        const testVerticalLines = [
             [{x: 100, y: 100}, {x: 100, y: 200}],  // 第一条垂直线
             [{x: 150, y: 120}, {x: 150, y: 180}],  // 第二条垂直线
             [{x: 200, y: 90}, {x: 200, y: 210}],   // 第三条垂直线
@@ -443,8 +446,8 @@ class GraffitiApp {
         // 清空画布
         this.drawingEngine.clearCanvas();
         
-        // 绘制6等分网格
-        this.imageProcessor.drawGrid(testGridData, {
+        // 绘制6等分垂线
+        this.imageProcessor.drawVerticalLines(testVerticalLines, {
             gridColor: '#00ff00',          // 绿色主网格
             gridLineWidth: 2,
             drawSubdivisions: true,        // 启用6等分
@@ -456,7 +459,7 @@ class GraffitiApp {
         });
         
         // 显示测试结果通知
-        this.showNotification('6等分网格测试完成！', 'success');
+        this.showNotification('6等分垂线测试完成！', 'success');
     }
     
     /**
@@ -512,35 +515,57 @@ class GraffitiApp {
      * 处理3D模型生成
      */
     handle3DGeneration() {
-        if (!this.latestGridData || this.latestGridData.length === 0) {
-            this.showNotification('没有网格数据可以生成3D模型，请先进行图像描边', 'warning');
-            return;
-        }
-        
-        this.showNotification('正在生成3D模型...', 'info');
-        
-        // 显示3D模型容器
-        const modelContainer = document.getElementById('modelContainer');
-        modelContainer.style.display = 'block';
-        
-        // 初始化3D场景
-        const success = this.model3D.initScene('threejs-container');
-        
-        if (success) {
-            // 生成3D模型
-            const modelGenerated = this.model3D.generateModel(this.latestGridData, this.latestThicknessData);
+        try {
+            this.showNotification('正在生成3D模型...', 'info');
             
-            if (modelGenerated) {
-                this.showNotification('3D模型生成成功！使用鼠标拖拽查看，滚轮缩放', 'success');
+            // 重新生成垂线数据（不依赖缓存）
+            const verticalLines = this._generateVerticalLinesFromEdges();
+            
+            if (!verticalLines || verticalLines.length === 0) {
+                this.showNotification('没有垂线数据可以生成3D模型，请检查图像是否有边缘', 'warning');
+                return;
+            }
+            
+            // 生成厚度数据（如果需要）
+            let thicknessData = null;
+            if (this.thicknessConfig.enabled) {
+                // 重新计算厚度数据
+                const edgePoints = this.edgeDetection.detectEdges();
+                const processedPoints = this.imageProcessor.sparsifyEdgePoints(edgePoints, this.edgeProcessConfig);
+                thicknessData = this.imageProcessor.calculateContourThickness(processedPoints, {
+                    thicknessFunction: this.thicknessConfig.thicknessFunction,
+                    maxThickness: this.thicknessConfig.maxThickness,
+                    minThickness: this.thicknessConfig.minThickness
+                });
+            }
+            
+            // 显示3D模型容器
+            const modelContainer = document.getElementById('modelContainer');
+            modelContainer.style.display = 'block';
+            
+            // 初始化3D场景
+            const success = this.model3D.initScene('threejs-container');
+            
+            if (success) {
+                // 生成3D模型
+                const modelGenerated = this.model3D.generateModel(verticalLines, thicknessData);
                 
-                // 滚动到3D模型视图
-                modelContainer.scrollIntoView({ behavior: 'smooth' });
+                if (modelGenerated) {
+                    this.showNotification('3D模型生成成功！使用鼠标拖拽查看，滚轮缩放', 'success');
+                    
+                    // 滚动到3D模型视图
+                    modelContainer.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    this.showNotification('3D模型生成失败', 'error');
+                    this.close3DView();
+                }
             } else {
-                this.showNotification('3D模型生成失败', 'error');
+                this.showNotification('3D场景初始化失败', 'error');
                 this.close3DView();
             }
-        } else {
-            this.showNotification('3D场景初始化失败', 'error');
+        } catch (error) {
+            console.error('3D生成错误:', error);
+            this.showNotification('3D模型生成失败，请重试', 'error');
             this.close3DView();
         }
     }
@@ -562,8 +587,8 @@ class GraffitiApp {
      * 测试3D模型生成
      */
     test3DGeneration() {
-        // 创建测试网格数据
-        const testGridData = [
+        // 创建测试垂线数据
+        const testVerticalLines = [
             [{x: 100, y: 100}, {x: 100, y: 200}],
             [{x: 150, y: 120}, {x: 150, y: 180}],
             [{x: 200, y: 140}, {x: 200, y: 160}],
@@ -584,7 +609,6 @@ class GraffitiApp {
         };
         
         // 保存测试数据
-        this.latestGridData = testGridData;
         this.latestThicknessData = testThicknessData;
         
         // 生成3D模型
@@ -631,22 +655,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
     // console.log('切分结果:', splitResult);
     //
-    // 2. 生成和绘制网格：
+    // 2. 生成和绘制垂线：
     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
-    // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray, 10);
-    // graffitiApp.imageProcessor.drawGrid(gridData);
+    // const verticalLines = graffitiApp.imageProcessor.generateVerticalLines(splitResult.firstArray, splitResult.secondArray, 10);
+    // graffitiApp.imageProcessor.drawVerticalLines(verticalLines);
     //
-         // 3. 自定义网格样式：
-     // graffitiApp.imageProcessor.drawGrid(gridData, {
-     //     gridColor: '#ff6b35',          // 橙色网格线
-     //     gridLineWidth: 2,              // 更粗的线条
-     //     drawGridPoints: true,          // 显示网格点
-     //     gridPointRadius: 3,            // 更大的网格点
-     //     gridPointColor: '#dc3545',     // 红色网格点
-     //     drawSubdivisions: true,        // 绘制6等分网格
-     //     subdivisionColor: '#ff6b35',   // 等分线颜色（与主网格相同）
-     //     subdivisionLineWidth: 1        // 等分线宽度
-     // });
+             // 3. 自定义垂线样式：
+    // graffitiApp.imageProcessor.drawVerticalLines(verticalLines, {
+    //     gridColor: '#ff6b35',          // 橙色垂线
+    //     gridLineWidth: 2,              // 更粗的线条
+    //     drawGridPoints: true,          // 显示垂线端点
+    //     gridPointRadius: 3,            // 更大的端点
+    //     gridPointColor: '#dc3545',     // 红色端点
+    //     drawSubdivisions: true,        // 绘制6等分线
+    //     subdivisionColor: '#ff6b35',   // 等分线颜色（与主垂线相同）
+    //     subdivisionLineWidth: 1        // 等分线宽度
+    // });
     //
     // 4. 切分线自定义样式：
     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
@@ -667,44 +691,44 @@ document.addEventListener('DOMContentLoaded', () => {
     //     drawLines: true
     // });
     //
-    // 5. 完整流程（稀疏化 -> 切分 -> 网格 -> 绘制）：
+    // 5. 完整流程（稀疏化 -> 切分 -> 垂线 -> 绘制）：
     // const rawPoints = [{x: 50, y: 100}, {x: 150, y: 50}, {x: 250, y: 100}, {x: 200, y: 150}];
     // const splitResult = graffitiApp.imageProcessor.processAndSplitPoints(rawPoints);
-    // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray);
-    // graffitiApp.imageProcessor.drawGrid(gridData);
+    // const verticalLines = graffitiApp.imageProcessor.generateVerticalLines(splitResult.firstArray, splitResult.secondArray);
+    // graffitiApp.imageProcessor.drawVerticalLines(verticalLines);
     //
     // 6. 边缘检测自动处理：
-    // // 边缘检测现在会自动执行：切分 -> 生成网格 -> 绘制所有内容
+    // // 边缘检测现在会自动执行：切分 -> 生成垂线 -> 绘制所有内容
     // graffitiApp.handleEdgeDetection(); 
     //
-         // 7. 配置6等分网格参数：
-     // graffitiApp.setEdgeDrawConfig({
-     //     tolerance: 15,                 // 网格生成容差
-     //     gridColor: '#00ffff',          // 青色网格
-     //     gridLineWidth: 2,              // 网格线宽度
-     //     drawGridPoints: true,          // 显示网格点
-     //     gridPointRadius: 4,            // 网格点大小
-     //     drawSubdivisions: true,        // 启用6等分网格
-     //     subdivisionColor: '#00ffff',   // 等分线颜色（与主网格相同）
-     //     subdivisionLineWidth: 2        // 等分线宽度
-     // });
+             // 7. 配置6等分垂线参数：
+    // graffitiApp.setEdgeDrawConfig({
+    //     tolerance: 15,                 // 垂线生成容差
+    //     gridColor: '#00ffff',          // 青色垂线
+    //     gridLineWidth: 2,              // 垂线宽度
+    //     drawGridPoints: true,          // 显示垂线端点
+    //     gridPointRadius: 4,            // 端点大小
+    //     drawSubdivisions: true,        // 启用6等分线
+    //     subdivisionColor: '#00ffff',   // 等分线颜色（与主垂线相同）
+    //     subdivisionLineWidth: 2        // 等分线宽度
+    // });
     //
-         // 8. 单独控制6等分网格：
-     // // 只绘制主网格，不绘制6等分
-     // graffitiApp.imageProcessor.drawGrid(gridData, {
-     //     drawSubdivisions: false        // 关闭6等分网格
-     // });
-     //
-     // // 只绘制6等分网格，不绘制主网格
-     // graffitiApp.imageProcessor.drawGrid(gridData, {
-     //     gridColor: 'transparent',      // 隐藏主网格
-     //     drawSubdivisions: true,        // 启用6等分网格
-     //     subdivisionColor: 'transparent', // 等分线颜色（自定义，可不同于主网格）
-     //     subdivisionLineWidth: 1
-     // });
-     //
-     // 9. 测试6等分网格功能：
-     // graffitiApp.testSubdivisionGrid();
+             // 8. 单独控制6等分垂线：
+    // // 只绘制主垂线，不绘制6等分
+    // graffitiApp.imageProcessor.drawVerticalLines(verticalLines, {
+    //     drawSubdivisions: false        // 关闭6等分线
+    // });
+    //
+    // // 只绘制6等分线，不绘制主垂线
+    // graffitiApp.imageProcessor.drawVerticalLines(verticalLines, {
+    //     gridColor: 'transparent',      // 隐藏主垂线
+    //     drawSubdivisions: true,        // 启用6等分线
+    //     subdivisionColor: 'transparent', // 等分线颜色（自定义，可不同于主垂线）
+    //     subdivisionLineWidth: 1
+    // });
+    //
+    // 9. 测试6等分垂线功能：
+    // graffitiApp.testSubdivisionGrid();
      //
      // 10. 厚度轮廓功能：
      // // 启用厚度功能
@@ -730,11 +754,11 @@ document.addEventListener('DOMContentLoaded', () => {
      //     { fillColor: '#28a745', thicknessVisualization: 'circle' }
      // );
      //
-     // 11. 分析结果：
-     // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
-     // const gridData = graffitiApp.imageProcessor.generateGridData(splitResult.firstArray, splitResult.secondArray);
-     // console.log('第一条线点数:', splitResult.firstArray.length);
-     // console.log('第二条线点数:', splitResult.secondArray.length);
-     // console.log('网格连接数:', gridData.length);
-     // console.log('6等分网格:', '每个垂直连接被分为6段，产生7个等分点，横向线与纵向线颜色一致');
+         // 11. 分析结果：
+    // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
+    // const verticalLines = graffitiApp.imageProcessor.generateVerticalLines(splitResult.firstArray, splitResult.secondArray);
+    // console.log('第一条线点数:', splitResult.firstArray.length);
+    // console.log('第二条线点数:', splitResult.secondArray.length);
+    // console.log('垂线连接数:', verticalLines.length);
+    // console.log('6等分垂线:', '每个垂直连接被分为6段，产生7个等分点，横向线与纵向线颜色一致');
 }); 

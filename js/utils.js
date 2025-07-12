@@ -346,14 +346,14 @@ class Model3DProcessor {
     }
     
     /**
-     * 基于网格数据和厚度数据生成3D模型
-     * @param {Array} gridData - 网格数据
+     * 基于垂线数据和厚度数据生成3D模型
+     * @param {Array} verticalLines - 垂线数据
      * @param {Object} thicknessData - 厚度数据
      * @param {Object} options - 生成选项
      */
-    generateModel(gridData, thicknessData, options = {}) {
-        if (!gridData || gridData.length === 0) {
-            console.warn('没有网格数据可以生成3D模型');
+    generateModel(verticalLines, thicknessData, options = {}) {
+        if (!verticalLines || verticalLines.length === 0) {
+            console.warn('没有垂线数据可以生成3D模型');
             return false;
         }
         
@@ -367,7 +367,7 @@ class Model3DProcessor {
         }
         
         // 生成几何体
-        const geometry = this.createGeometryFromGridData(gridData, thicknessData);
+        const geometry = this.createGeometryFromVerticalLines(verticalLines, thicknessData);
         
         // 创建材质
         const material = new THREE.MeshPhongMaterial({
@@ -393,9 +393,9 @@ class Model3DProcessor {
     }
     
     /**
-     * 基于网格数据创建几何体
+     * 基于垂线数据创建几何体
      */
-    createGeometryFromGridData(gridData, thicknessData) {
+    createGeometryFromVerticalLines(verticalLines, thicknessData) {
         const geometry = new THREE.BufferGeometry();
         
         // 创建顶点、法线和索引数组
@@ -404,11 +404,11 @@ class Model3DProcessor {
         const indices = [];
         
         // 计算边界框
-        const bounds = this.calculateGridBounds(gridData);
+        const bounds = this.calculateVerticalLinesBounds(verticalLines);
         
-        // 为每个网格连接生成四边形
-        for (let i = 0; i < gridData.length; i++) {
-            const connection = gridData[i];
+        // 为每个垂线连接生成四边形
+        for (let i = 0; i < verticalLines.length; i++) {
+            const connection = verticalLines[i];
             if (!connection || connection.length !== 2) continue;
             
             const [point1, point2] = connection;
@@ -450,13 +450,13 @@ class Model3DProcessor {
     }
     
     /**
-     * 计算网格边界框
+     * 计算垂线边界框
      */
-    calculateGridBounds(gridData) {
+    calculateVerticalLinesBounds(verticalLines) {
         let minX = Infinity, maxX = -Infinity;
         let minY = Infinity, maxY = -Infinity;
         
-        for (const connection of gridData) {
+        for (const connection of verticalLines) {
             if (!connection || connection.length !== 2) continue;
             
             for (const point of connection) {

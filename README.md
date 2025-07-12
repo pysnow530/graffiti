@@ -370,8 +370,8 @@ app.setThicknessConfig({
 - ✅ **广泛适应性**：对常见的手绘线条和图片边缘检测效果良好
 - ✅ **轻量高效**：算法简洁，运行速度快，资源占用少
 - ✅ **实用性强**：满足大部分日常涂鸦和图像处理需求
-- ✅ **智能网格**：自动生成6等分网格，形成精细的网格结构
-- ✅ **可定制性**：支持自定义网格颜色、线宽、容差等参数
+- ✅ **智能垂线**：自动生成6等分垂线，形成精细的垂线结构
+- ✅ **可定制性**：支持自定义垂线颜色、线宽、容差等参数
 - ✅ **厚度轮廓**：基于鱼形算法的自然厚度分布，实现艺术化效果
 - ✅ **多样化函数**：鱼形、椭圆形、纺锤形、叶子形等多种厚度函数
 - ✅ **灵活可视化**：线条、圆形、渐变三种可视化方式可选
@@ -382,7 +382,7 @@ app.setThicknessConfig({
 |------|----------|----------|----------|--------|
 | 1.0 | 单线扫描 | 0像素 | 理想线条 | ⭐⭐ |
 | **2.0** | **5点扫描带** | **±2像素** | **日常使用** | **⭐⭐⭐** |
-| **3.0** | **6等分网格** | **智能匹配** | **统一颜色网格** | **⭐⭐⭐⭐** |
+| **3.0** | **6等分垂线** | **智能匹配** | **统一颜色垂线** | **⭐⭐⭐⭐** |
 | **4.0** | **厚度轮廓** | **鱼形函数** | **艺术化效果** | **⭐⭐⭐⭐⭐** |
 
 ### 🎯 5点扫描带结构示意
@@ -396,9 +396,9 @@ app.setThicknessConfig({
          ← 容错范围：±2像素
 ```
 
-### 🕸️ 6等分网格结构示意
+### 🕸️ 6等分垂线结构示意
 ```
-垂直连接1  垂直连接2  垂直连接3
+垂线连接1  垂线连接2  垂线连接3
     ●----------●----------●     ← 0/6 (起始点)
     ●----------●----------●     ← 1/6
     ●----------●----------●     ← 2/6
@@ -407,24 +407,24 @@ app.setThicknessConfig({
     ●----------●----------●     ← 5/6
     ●----------●----------●     ← 6/6 (结束点)
     ↑          ↑          ↑
-  绿色主网格  绿色等分线  红色网格点
+  绿色主垂线  绿色等分线  红色端点
 ```
 
-### 🕸️ 6等分网格API
+### 🕸️ 6等分垂线API
 
 **核心功能**：
 ```javascript
 // 手动生成和绘制6等分网格
 const points = [{x: 100, y: 100}, {x: 200, y: 150}, {x: 300, y: 100}];
 const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
-const gridData = graffitiApp.imageProcessor.generateGridData(
+const verticalLines = graffitiApp.imageProcessor.generateVerticalLines(
     splitResult.firstArray, 
     splitResult.secondArray, 
     10  // 容差
 );
 
-// 绘制完整网格（垂直线+6等分）
-graffitiApp.imageProcessor.drawGrid(gridData, {
+// 绘制完整垂线（垂直线+6等分）
+graffitiApp.imageProcessor.drawVerticalLines(verticalLines, {
     gridColor: '#00ff00',          // 绿色垂直线
     gridLineWidth: 2,
     drawSubdivisions: true,        // 启用6等分
@@ -435,15 +435,15 @@ graffitiApp.imageProcessor.drawGrid(gridData, {
     gridPointColor: '#ff0000'      // 红色网格点
 });
 
-// 只绘制6等分网格，隐藏主网格
-graffitiApp.imageProcessor.drawGrid(gridData, {
+// 只绘制6等分线，隐藏主垂线
+graffitiApp.imageProcessor.drawVerticalLines(verticalLines, {
     gridColor: 'transparent',      // 隐藏主网格
     drawSubdivisions: true,        // 启用6等分
     subdivisionColor: '#ff6b35',   // 橙色等分线（自定义颜色）
     subdivisionLineWidth: 2
 });
 
-// 测试6等分网格功能
+// 测试6等分垂线功能
 graffitiApp.testSubdivisionGrid();
 
 // 测试厚度轮廓功能
@@ -452,16 +452,16 @@ graffitiApp.testThicknessContour();
 
 **算法原理**：
 1. **轮廓切分** - 找到最右侧点，将轮廓分成两条线
-2. **垂直连接** - 根据X坐标和容差匹配点，形成垂直连接
+2. **垂线生成** - 根据X坐标和容差匹配点，形成垂线连接
 3. **线性插值** - 距离较远的点进行插值，补充连接点
-4. **6等分计算** - 每条垂直连接分成6等分，产生7个等分点
-5. **水平连线** - 相邻垂直线的对应等分点之间绘制水平连线（与垂直线颜色一致）
+4. **6等分计算** - 每条垂线连接分成6等分，产生7个等分点
+5. **水平连线** - 相邻垂线的对应等分点之间绘制水平连线（与垂线颜色一致）
 
 **技术特点**：
 - 🎯 **智能匹配** - 基于容差的点匹配算法
 - 🔧 **线性插值** - 自动补充缺失的连接点
 - 📐 **精确等分** - 数学计算确保等分点精度
-- 🎨 **分层绘制** - 主网格、等分线、网格点分层渲染
+- 🎨 **分层绘制** - 主垂线、等分线、端点分层渲染
 - ⚡ **性能优化** - 批量绘制，减少Canvas操作次数
 - 🌈 **颜色统一** - 横向和纵向线条使用相同颜色，保持视觉一致性
 
