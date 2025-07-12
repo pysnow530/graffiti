@@ -503,14 +503,15 @@ class Model3DProcessor {
         // 转换2D坐标到3D（Y轴向上）
         const x1 = point1.x - 400; // 居中
         const y1 = 300 - point1.y; // Y轴翻转
-        const z1_bottom = 0;
-        const z1_top = thickness1;
-        
+        // 以z=0为中心对称
+        const z1_bottom = -thickness1 / 2;
+        const z1_top = thickness1 / 2;
+
         const x2 = point2.x - 400; // 居中
         const y2 = 300 - point2.y; // Y轴翻转
-        const z2_bottom = 0;
-        const z2_top = thickness2;
-        
+        const z2_bottom = -thickness2 / 2;
+        const z2_top = thickness2 / 2;
+
         // 四边形的四个顶点
         const vertices = [
             { x: x1, y: y1, z: z1_bottom },  // 左下
@@ -518,16 +519,16 @@ class Model3DProcessor {
             { x: x2, y: y2, z: z2_top },     // 右上
             { x: x1, y: y1, z: z1_top }      // 左上
         ];
-        
+
         // 计算法线
-        const v1 = new THREE.Vector3(x2 - x1, y2 - y1, 0);
-        const v2 = new THREE.Vector3(0, 0, thickness1);
+        const v1 = new THREE.Vector3(x2 - x1, y2 - y1, z2_bottom - z1_bottom);
+        const v2 = new THREE.Vector3(0, 0, z1_top - z1_bottom);
         const normal = new THREE.Vector3().crossVectors(v1, v2).normalize();
-        
+
         const normals = [
             normal, normal, normal, normal
         ];
-        
+
         return { vertices, normals };
     }
     
