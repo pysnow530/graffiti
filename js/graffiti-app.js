@@ -223,7 +223,7 @@ class GraffitiApp {
         
         // 测试3D模型事件
         test3DButton.addEventListener('click', () => {
-            this.test3DGeneration();
+            this.handle3DGeneration();
         });
         
         // 导出3D模型事件
@@ -309,7 +309,7 @@ class GraffitiApp {
                 // 处理厚度轮廓
                 let thickContour = null;
                 if (this.thicknessConfig.enabled) {
-                    thickContour = this.imageProcessor.calculateContourThickness(processedPoints, {
+                    thickContour = this.imageProcessor.calculateThicknessFromVerticalLines(verticalLines, {
                         thicknessFunction: this.thicknessConfig.thicknessFunction,
                         maxThickness: this.thicknessConfig.maxThickness,
                         minThickness: this.thicknessConfig.minThickness
@@ -430,86 +430,10 @@ class GraffitiApp {
         this.thicknessConfig = { ...this.thicknessConfig, ...config };
     }
     
-    /**
-     * 测试6等分垂线功能
-     * 创建一些测试数据并绘制6等分垂线
-     */
-    testSubdivisionGrid() {
-        // 创建测试数据：4个垂直连接
-        const testVerticalLines = [
-            [{x: 100, y: 100}, {x: 100, y: 200}],  // 第一条垂直线
-            [{x: 150, y: 120}, {x: 150, y: 180}],  // 第二条垂直线
-            [{x: 200, y: 90}, {x: 200, y: 210}],   // 第三条垂直线
-            [{x: 250, y: 110}, {x: 250, y: 190}]   // 第四条垂直线
-        ];
-        
-        // 清空画布
-        this.drawingEngine.clearCanvas();
-        
-        // 绘制6等分垂线
-        this.imageProcessor.drawVerticalLines(testVerticalLines, {
-            gridColor: '#00ff00',          // 绿色主网格
-            gridLineWidth: 2,
-            drawSubdivisions: true,        // 启用6等分
-            subdivisionColor: '#00ff00',   // 等分线颜色（与主网格相同）
-            subdivisionLineWidth: 1,
-            drawGridPoints: true,          // 显示网格点
-            gridPointRadius: 3,
-            gridPointColor: '#ff0000'      // 红色网格点
-        });
-        
-        // 显示测试结果通知
-        this.showNotification('6等分垂线测试完成！', 'success');
-    }
+
     
-    /**
-     * 测试封闭图形厚度功能
-     * 创建测试数据并展示不同的厚度函数效果
-     */
-    testThicknessContour() {
-        // 创建测试轮廓数据：一条曲线
-        const testContour = [];
-        for (let i = 0; i <= 20; i++) {
-            const x = 100 + i * 15;
-            const y = 200 + Math.sin(i * 0.3) * 30;
-            testContour.push({x, y});
-        }
-        
-        // 清空画布
-        this.drawingEngine.clearCanvas();
-        
-        // 测试不同的厚度函数
-        const thicknessFunctions = ['fish', 'ellipse', 'spindle', 'leaf'];
-        const colors = ['#ff6b35', '#28a745', '#6f42c1', '#fd7e14'];
-        const visualizations = ['gradient', 'solid', 'shadow', 'gradient'];
-        
-        for (let i = 0; i < thicknessFunctions.length; i++) {
-            const offsetContour = testContour.map(point => ({
-                x: point.x,
-                y: point.y + i * 80 // 垂直偏移，避免重叠
-            }));
-            
-            this.imageProcessor.processAndDrawThickContour(
-                offsetContour,
-                {
-                    thicknessFunction: thicknessFunctions[i],
-                    maxThickness: 25,
-                    minThickness: 3
-                },
-                {
-                    fillColor: colors[i],
-                    strokeColor: colors[i],
-                    strokeWidth: 1,
-                    drawOutline: true,
-                    drawFill: true,
-                    thicknessVisualization: visualizations[i]
-                }
-            );
-        }
-        
-        // 显示测试结果通知
-        this.showNotification('封闭图形厚度测试完成！', 'success');
-    }
+
+
     
     /**
      * 处理3D模型生成
@@ -529,10 +453,8 @@ class GraffitiApp {
             // 生成厚度数据（如果需要）
             let thicknessData = null;
             if (this.thicknessConfig.enabled) {
-                // 重新计算厚度数据
-                const edgePoints = this.edgeDetection.detectEdges();
-                const processedPoints = this.imageProcessor.sparsifyEdgePoints(edgePoints, this.edgeProcessConfig);
-                thicknessData = this.imageProcessor.calculateContourThickness(processedPoints, {
+                // 基于垂线数据计算厚度
+                thicknessData = this.imageProcessor.calculateThicknessFromVerticalLines(verticalLines, {
                     thicknessFunction: this.thicknessConfig.thicknessFunction,
                     maxThickness: this.thicknessConfig.maxThickness,
                     minThickness: this.thicknessConfig.minThickness
@@ -583,37 +505,7 @@ class GraffitiApp {
         this.showNotification('3D视图已关闭', 'info');
     }
     
-    /**
-     * 测试3D模型生成
-     */
-    test3DGeneration() {
-        // 创建测试垂线数据
-        const testVerticalLines = [
-            [{x: 100, y: 100}, {x: 100, y: 200}],
-            [{x: 150, y: 120}, {x: 150, y: 180}],
-            [{x: 200, y: 140}, {x: 200, y: 160}],
-            [{x: 250, y: 160}, {x: 250, y: 140}],
-            [{x: 300, y: 180}, {x: 300, y: 120}],
-            [{x: 350, y: 200}, {x: 350, y: 100}]
-        ];
-        
-        // 创建测试厚度数据
-        const testThicknessData = {
-            thicknessFunction: (t, maxThickness) => {
-                // 使用鱼形厚度函数
-                return maxThickness * Math.sin(Math.PI * t);
-            },
-            maxThickness: 30,
-            minThickness: 2,
-            functionName: 'fish'
-        };
-        
-        // 保存测试数据
-        this.latestThicknessData = testThicknessData;
-        
-        // 生成3D模型
-        this.handle3DGeneration();
-    }
+
 
     /**
      * 显示通知消息
@@ -647,118 +539,4 @@ class GraffitiApp {
 // 页面加载完成后初始化应用
 document.addEventListener('DOMContentLoaded', () => {
     window.graffitiApp = new GraffitiApp();
-    
-    // 网格和切分功能使用示例（在浏览器控制台中运行）
-    // 
-    // 1. 基本切分操作（通过 imageProcessor）：
-    // const points = [{x: 100, y: 100}, {x: 200, y: 150}, {x: 300, y: 100}, {x: 250, y: 200}];
-    // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
-    // console.log('切分结果:', splitResult);
-    //
-    // 2. 生成和绘制垂线：
-    // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
-    // const verticalLines = graffitiApp.imageProcessor.generateVerticalLines(splitResult.firstArray, splitResult.secondArray, 10);
-    // graffitiApp.imageProcessor.drawVerticalLines(verticalLines);
-    //
-             // 3. 自定义垂线样式：
-    // graffitiApp.imageProcessor.drawVerticalLines(verticalLines, {
-    //     gridColor: '#ff6b35',          // 橙色垂线
-    //     gridLineWidth: 2,              // 更粗的线条
-    //     drawGridPoints: true,          // 显示垂线端点
-    //     gridPointRadius: 3,            // 更大的端点
-    //     gridPointColor: '#dc3545',     // 红色端点
-    //     drawSubdivisions: true,        // 绘制6等分线
-    //     subdivisionColor: '#ff6b35',   // 等分线颜色（与主垂线相同）
-    //     subdivisionLineWidth: 1        // 等分线宽度
-    // });
-    //
-    // 4. 切分线自定义样式：
-    // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
-    // // 绘制第一条线
-    // graffitiApp.imageProcessor.drawSplitLines(splitResult.firstArray, {
-    //     color: '#ff6b35',     // 橙色第一条线
-    //     lineWidth: 3,
-    //     pointRadius: 4,
-    //     drawPoints: true,
-    //     drawLines: true
-    // });
-    // // 绘制第二条线
-    // graffitiApp.imageProcessor.drawSplitLines(splitResult.secondArray, {
-    //     color: '#6f42c1',     // 紫色第二条线
-    //     lineWidth: 3,
-    //     pointRadius: 4,
-    //     drawPoints: true,
-    //     drawLines: true
-    // });
-    //
-    // 5. 完整流程（稀疏化 -> 切分 -> 垂线 -> 绘制）：
-    // const rawPoints = [{x: 50, y: 100}, {x: 150, y: 50}, {x: 250, y: 100}, {x: 200, y: 150}];
-    // const splitResult = graffitiApp.imageProcessor.processAndSplitPoints(rawPoints);
-    // const verticalLines = graffitiApp.imageProcessor.generateVerticalLines(splitResult.firstArray, splitResult.secondArray);
-    // graffitiApp.imageProcessor.drawVerticalLines(verticalLines);
-    //
-    // 6. 边缘检测自动处理：
-    // // 边缘检测现在会自动执行：切分 -> 生成垂线 -> 绘制所有内容
-    // graffitiApp.handleEdgeDetection(); 
-    //
-             // 7. 配置6等分垂线参数：
-    // graffitiApp.setEdgeDrawConfig({
-    //     tolerance: 15,                 // 垂线生成容差
-    //     gridColor: '#00ffff',          // 青色垂线
-    //     gridLineWidth: 2,              // 垂线宽度
-    //     drawGridPoints: true,          // 显示垂线端点
-    //     gridPointRadius: 4,            // 端点大小
-    //     drawSubdivisions: true,        // 启用6等分线
-    //     subdivisionColor: '#00ffff',   // 等分线颜色（与主垂线相同）
-    //     subdivisionLineWidth: 2        // 等分线宽度
-    // });
-    //
-             // 8. 单独控制6等分垂线：
-    // // 只绘制主垂线，不绘制6等分
-    // graffitiApp.imageProcessor.drawVerticalLines(verticalLines, {
-    //     drawSubdivisions: false        // 关闭6等分线
-    // });
-    //
-    // // 只绘制6等分线，不绘制主垂线
-    // graffitiApp.imageProcessor.drawVerticalLines(verticalLines, {
-    //     gridColor: 'transparent',      // 隐藏主垂线
-    //     drawSubdivisions: true,        // 启用6等分线
-    //     subdivisionColor: 'transparent', // 等分线颜色（自定义，可不同于主垂线）
-    //     subdivisionLineWidth: 1
-    // });
-    //
-    // 9. 测试6等分垂线功能：
-    // graffitiApp.testSubdivisionGrid();
-     //
-     // 10. 厚度轮廓功能：
-     // // 启用厚度功能
-     // graffitiApp.setThicknessConfig({
-     //     enabled: true,                    // 启用厚度功能
-     //     thicknessFunction: 'fish',        // 使用鱼形厚度函数
-     //     maxThickness: 40,                 // 最大厚度
-     //     minThickness: 3,                  // 最小厚度
-     //     fillColor: '#ff6b35',             // 橙色填充
-     //     strokeColor: '#dc3545',           // 红色描边
-     //     thicknessVisualization: 'gradient' // 渐变填充方式
-     // });
-     // graffitiApp.handleEdgeDetection();    // 边缘检测会自动应用厚度
-     //
-     // // 测试厚度轮廓功能
-     // graffitiApp.testThicknessContour();
-     //
-     // // 手动处理厚度轮廓
-     // const points = [{x: 100, y: 100}, {x: 200, y: 120}, {x: 300, y: 100}];
-     // const thickContour = graffitiApp.imageProcessor.processAndDrawThickContour(
-     //     points,
-     //     { thicknessFunction: 'ellipse', maxThickness: 30 },
-     //     { fillColor: '#28a745', thicknessVisualization: 'circle' }
-     // );
-     //
-         // 11. 分析结果：
-    // const splitResult = graffitiApp.imageProcessor.splitPointsAtRightmost(points);
-    // const verticalLines = graffitiApp.imageProcessor.generateVerticalLines(splitResult.firstArray, splitResult.secondArray);
-    // console.log('第一条线点数:', splitResult.firstArray.length);
-    // console.log('第二条线点数:', splitResult.secondArray.length);
-    // console.log('垂线连接数:', verticalLines.length);
-    // console.log('6等分垂线:', '每个垂直连接被分为6段，产生7个等分点，横向线与纵向线颜色一致');
 }); 

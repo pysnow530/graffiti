@@ -825,15 +825,15 @@ class ImageProcessor {
      };
      
      /**
-      * 计算封闭图形的厚度填充数据
-      * @param {Array<{x: number, y: number}>} contour - 轮廓点数组
+      * 基于垂线数据计算厚度填充数据
+      * @param {Array<Array<{x: number, y: number}>>} verticalLines - 垂线数据
       * @param {Object} options - 厚度配置
       * @param {string} options.thicknessFunction - 厚度函数名 ('fish', 'ellipse', 'spindle', 'leaf')
       * @param {number} options.maxThickness - 最大厚度
       * @param {number} options.minThickness - 最小厚度
       * @returns {Object} 厚度填充数据
       */
-     calculateContourThickness(contour, options = {}) {
+     calculateThicknessFromVerticalLines(verticalLines, options = {}) {
          const defaultOptions = {
              thicknessFunction: 'fish',
              maxThickness: 20,
@@ -842,14 +842,30 @@ class ImageProcessor {
          
          const finalOptions = { ...defaultOptions, ...options };
          
-         if (!contour || contour.length === 0) {
+         if (!verticalLines || verticalLines.length === 0) {
              return null;
          }
          
- 
+         // 从垂线数据中提取中心线作为轮廓
+         const centerContour = [];
+         for (const verticalLine of verticalLines) {
+             if (verticalLine && verticalLine.length === 2) {
+                 const [point1, point2] = verticalLine;
+                 // 计算中心点
+                 const centerPoint = {
+                     x: (point1.x + point2.x) / 2,
+                     y: (point1.y + point2.y) / 2
+                 };
+                 centerContour.push(centerPoint);
+             }
+         }
+         
+         if (centerContour.length === 0) {
+             return null;
+         }
          
          // 确保轮廓是封闭的
-         const closedContour = this.ensureClosedContour(contour);
+         const closedContour = this.ensureClosedContour(centerContour);
          
          // 计算边界框
          const bounds = this.calculateBounds(closedContour);
@@ -857,9 +873,10 @@ class ImageProcessor {
          // 根据厚度函数计算填充区域
          const thicknessData = this.calculateRegionThickness(closedContour, bounds, finalOptions);
          
- 
          return thicknessData;
      }
+
+     
      
      /**
       * 确保轮廓是封闭的
@@ -1136,6 +1153,25 @@ class ImageProcessor {
      }
      
      /**
+      * 将轮廓转换为垂线格式（用于兼容旧的厚度计算接口）
+      * @param {Array<{x: number, y: number}>} contour - 轮廓点数组
+      * @returns {Array<Array<{x: number, y: number}>>} 垂线数组
+      */
+     convertContourToVerticalLines(contour) {
+         if (!contour || contour.length < 2) {
+             return [];
+         }
+         
+         // 将轮廓点按顺序配对成垂线
+         const verticalLines = [];
+         for (let i = 0; i < contour.length - 1; i++) {
+             verticalLines.push([contour[i], contour[i + 1]]);
+         }
+         
+         return verticalLines;
+     }
+
+     /**
       * 完整的厚度轮廓处理流程
       * @param {Array<{x: number, y: number}>} contour - 原始轮廓点
       * @param {Object} thicknessOptions - 厚度计算选项
@@ -1145,8 +1181,10 @@ class ImageProcessor {
      processAndDrawThickContour(contour, thicknessOptions = {}, drawOptions = {}) {
  
          
-         // 1. 计算厚度数据
-         const thicknessData = this.calculateContourThickness(contour, thicknessOptions);
+         // 1. 计算厚度数据 - 使用新的基于垂线的方法
+         // 首先将轮廓转换为垂线格式，然后计算厚度
+         const mockVerticalLines = this.convertContourToVerticalLines(contour);
+         const thicknessData = this.calculateThicknessFromVerticalLines(mockVerticalLines, thicknessOptions);
          
          // 2. 绘制厚度图形
          if (thicknessData) {

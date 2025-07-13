@@ -208,146 +208,43 @@ ImageProcessor (渲染)
 
 **边缘检测结果格式**：
 ```javascript
-// 新格式：结构化点对象数组（推荐）
+// 结构化点对象数组
 const edgePoints = [
     {x: 100, y: 50},
     {x: 105, y: 52},
     {x: 110, y: 48}
 ];
-
-// 转换为其他格式
-const stringFormat = edgeDetector.convertEdgePointsFormat(edgePoints, 'string');
-// 结果: ["100,50", "105,52", "110,48"]
-
-const arrayFormat = edgeDetector.convertEdgePointsFormat(edgePoints, 'array');
-// 结果: [[100,50], [105,52], [110,48]]
 ```
 
-**绘制控制API**：
+**基本配置API**：
 ```javascript
-// 配置边缘绘制参数（支持连线和6等分网格）
+// 配置边缘绘制参数
 app.setEdgeDrawConfig({
-    color: '#ff0000',      // 红色边缘点
-    radius: 2,             // 点半径
-    enabled: true,         // 自动绘制
-    drawLines: true,       // 绘制连线
-    lineWidth: 1,          // 连线宽度
-    lineColor: '#ff0000',  // 连线颜色
-    drawPoints: true,      // 绘制点
-    // 6等分网格相关参数
-    tolerance: 10,         // 网格生成容差
-    gridColor: '#00ff00',  // 网格线颜色（绿色）
-    drawSubdivisions: true, // 启用6等分网格
-    subdivisionColor: '#00ff00', // 等分线颜色（与主网格相同）
-    subdivisionLineWidth: 1      // 等分线宽度
+    color: '#ff0000',
+    radius: 2,
+    enabled: true,
+    drawLines: true,
+    tolerance: 10,
+    gridColor: '#00ff00',
+    drawSubdivisions: true
 });
 
 // 配置厚度轮廓参数
 app.setThicknessConfig({
-    enabled: true,              // 启用厚度功能
-    thicknessFunction: 'fish',  // 厚度函数类型
-    maxThickness: 40,           // 最大厚度
-    minThickness: 3,            // 最小厚度
-    fillColor: '#ff6b35',       // 填充颜色
-    strokeColor: '#dc3545',     // 描边颜色
-    thicknessVisualization: 'gradient' // 可视化方式
-});
-
-// 配置边缘点预处理参数
-app.setEdgeProcessConfig({
-    enableSort: true,      // 启用路径排序
-    enableCompress: true,  // 启用道格拉斯-普克压缩
-    tolerance: 2.0         // 压缩容差（越小保留的点越多）
-});
-
-// 手动绘制边缘点（通过 imageProcessor 直接绘制）
-app.imageProcessor.drawContour(edgePoints, { 
-    color: '#00ff00', 
-    radius: 3,
-    drawLines: true,
-    drawPoints: true
-});
-
-// 手动绘制厚度轮廓
-app.imageProcessor.processAndDrawThickContour(edgePoints, {
-    thicknessFunction: 'fish',   // 鱼形厚度
-    maxThickness: 25,
-    minThickness: 2
-}, {
-    fillColor: '#ff6b35',        // 橙色填充
-    thicknessVisualization: 'gradient' // 渐变可视化
-});
-
-// 只执行算法，不自动绘制
-app.setEdgeDrawConfig({ enabled: false });
-app.setThicknessConfig({ enabled: false });
-app.handleEdgeDetection(); // 只计算，返回数据
-```
-
-**道格拉斯-普克算法配置**：
-```javascript
-// 高精度模式（保留更多点）
-app.setEdgeProcessConfig({ tolerance: 0.5 });
-
-// 标准模式（平衡精度和性能）
-app.setEdgeProcessConfig({ tolerance: 2.0 });
-
-// 高压缩模式（大幅减少点数）
-app.setEdgeProcessConfig({ tolerance: 5.0 });
-
-// 只排序，不压缩
-app.setEdgeProcessConfig({ 
-    enableSort: true, 
-    enableCompress: false 
-});
-```
-
-**轮廓绘制模式**：
-```javascript
-// 模式1：完整轮廓（点+连线）- 默认模式
-app.setEdgeDrawConfig({
-    drawLines: true,
-    drawPoints: true,
-    lineWidth: 1
-});
-
-// 模式2：纯线条轮廓（只有连线）
-app.setEdgeDrawConfig({
-    drawLines: true,
-    drawPoints: false,
-    lineWidth: 2
-});
-
-// 模式3：点状轮廓（只有点）
-app.setEdgeDrawConfig({
-    drawLines: false,
-    drawPoints: true,
-    radius: 3
-});
-
-// 模式4：粗线轮廓（适合复杂图形）
-app.setEdgeDrawConfig({
-    drawLines: true,
-    drawPoints: false,
-    lineWidth: 3,
-    lineColor: '#ff6b35'  // 橙色线条
-});
-
-// 模式5：厚度轮廓（艺术化效果）
-app.setThicknessConfig({
     enabled: true,
     thicknessFunction: 'fish',
-    maxThickness: 30,
-    fillColor: '#ff6b35',
-    thicknessVisualization: 'gradient'
+    maxThickness: 40,
+    minThickness: 3,
+    fillColor: '#ff6b35'
+});
+
+// 配置预处理参数
+app.setEdgeProcessConfig({
+    enableSort: true,
+    enableCompress: true,
+    tolerance: 2.0
 });
 ```
-
-**优势**：
-- ✅ 类型安全，便于IDE提示和错误检查
-- ✅ 更直观的数据结构，易于理解和使用
-- ✅ 支持扩展（可添加更多属性如颜色、权重等）
-- ✅ 向后兼容，`drawPoints`方法仍支持字符串格式
 - ✅ **职责分离，算法与绘制解耦**
 - ✅ **智能路径排序**，将散乱点组织成连续路径
 - ✅ **道格拉斯-普克压缩**，大幅减少冗余点
@@ -443,11 +340,8 @@ graffitiApp.imageProcessor.drawVerticalLines(verticalLines, {
     subdivisionLineWidth: 2
 });
 
-// 测试6等分垂线功能
-graffitiApp.testSubdivisionGrid();
-
-// 测试厚度轮廓功能
-graffitiApp.testThicknessContour();
+// 使用6等分垂线功能
+graffitiApp.handleEdgeDetection();
 ```
 
 **算法原理**：
@@ -503,8 +397,8 @@ const thickContour = graffitiApp.imageProcessor.processAndDrawThickContour(
     }
 );
 
-// 测试不同厚度函数
-graffitiApp.testThicknessContour();
+// 使用厚度轮廓功能
+graffitiApp.handleEdgeDetection();
 ```
 
 **厚度函数说明**：
