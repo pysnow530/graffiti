@@ -845,27 +845,8 @@ class ImageProcessor {
          if (!verticalLines || verticalLines.length === 0) {
              return null;
          }
-         
-         // 从垂线数据中提取中心线作为轮廓
-         const centerContour = [];
-         for (const verticalLine of verticalLines) {
-             if (verticalLine && verticalLine.length === 2) {
-                 const [point1, point2] = verticalLine;
-                 // 计算中心点
-                 const centerPoint = {
-                     x: (point1.x + point2.x) / 2,
-                     y: (point1.y + point2.y) / 2
-                 };
-                 centerContour.push(centerPoint);
-             }
-         }
-         
-         if (centerContour.length === 0) {
-             return null;
-         }
-         
-         // 确保轮廓是封闭的
-         const closedContour = this.ensureClosedContour(centerContour);
+
+         const closedContour = verticalLines.map(([point1, _]) => point1).concat(verticalLines.map(([_, point2]) => point2).splice(1, verticalLines.length - 2).reverse());
          
          // 计算边界框
          const bounds = this.calculateBounds(closedContour);
